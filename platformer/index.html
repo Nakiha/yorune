@@ -17,7 +17,7 @@
             justify-content: center;
             align-items: center;
             min-height: 100vh;
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            font-family: 'Segoe UI', Tahoma, sans-serif;
             overflow: hidden;
         }
 
@@ -31,8 +31,12 @@
             overflow: hidden;
         }
 
-        canvas {
-            display: block;
+        #game-canvas {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 960px;
+            height: 540px;
         }
 
         /* 开始界面 */
@@ -45,58 +49,54 @@
             background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
             display: flex;
             flex-direction: column;
-            justify-content: center;
+            justify-content: flex-start;
             align-items: center;
             z-index: 100;
+            padding: 20px;
+            overflow-y: auto;
         }
 
         #start-screen h1 {
-            font-size: 48px;
+            font-size: 36px;
             color: #ffe66d;
-            text-shadow: 3px 3px 0 #e74c3c, 6px 6px 0 #000;
-            margin-bottom: 20px;
-            animation: shake 0.5s ease-in-out infinite;
-        }
-
-        @keyframes shake {
-            0%, 100% { transform: translateX(0); }
-            25% { transform: translateX(-2px) rotate(-1deg); }
-            75% { transform: translateX(2px) rotate(1deg); }
+            text-shadow: 2px 2px 0 #e74c3c, 4px 4px 0 #000;
+            margin-top: 10px;
+            margin-bottom: 5px;
         }
 
         .subtitle {
-            font-size: 20px;
+            font-size: 16px;
             color: #4ecdc4;
-            margin-bottom: 40px;
+            margin-bottom: 10px;
         }
-
+        
         .warning-box {
             background: rgba(231, 76, 60, 0.2);
             border: 2px solid #e74c3c;
-            border-radius: 10px;
-            padding: 20px;
-            margin: 20px;
-            max-width: 600px;
+            border-radius: 8px;
+            padding: 10px 15px;
+            margin: 10px 0;
+            max-width: 500px;
             text-align: center;
         }
 
         .warning-box p {
             color: #ff6b6b;
-            font-size: 14px;
-            margin: 5px 0;
+            font-size: 12px;
+            margin: 3px 0;
         }
 
         .character-select {
             display: flex;
-            gap: 20px;
-            margin: 30px 0;
+            gap: 15px;
+            margin: 15px 0;
         }
 
         .char-option {
             background: rgba(255, 255, 255, 0.1);
             border: 3px solid transparent;
-            border-radius: 15px;
-            padding: 15px;
+            border-radius: 12px;
+            padding: 10px;
             cursor: pointer;
             transition: all 0.3s;
             text-align: center;
@@ -104,57 +104,56 @@
 
         .char-option:hover {
             background: rgba(255, 255, 255, 0.2);
-            transform: scale(1.1);
+            transform: scale(1.05);
         }
 
         .char-option.selected {
             border-color: #ffe66d;
-            box-shadow: 0 0 20px rgba(255, 230, 109, 0.5);
+            box-shadow: 0 0 15px rgba(255, 230, 109, 0.5);
         }
 
         .char-option .emoji {
-            font-size: 48px;
+            font-size: 36px;
             display: block;
         }
 
         .char-option .name {
             color: white;
-            font-size: 14px;
-            margin-top: 5px;
+            font-size: 12px;
+            margin-top: 3px;
         }
 
         .start-btn {
             background: linear-gradient(135deg, #e74c3c, #c0392b);
             color: white;
-            font-size: 24px;
-            padding: 15px 50px;
+            font-size: 20px;
+            padding: 12px 40px;
             border: none;
-            border-radius: 30px;
+            border-radius: 25px;
             cursor: pointer;
             transition: all 0.3s;
-            margin-top: 20px;
+            margin: 15px 0;
         }
 
         .start-btn:hover {
             transform: scale(1.1);
-            box-shadow: 0 0 30px rgba(231, 76, 60, 0.7);
+            box-shadow: 0 0 20px rgba(231, 76, 60, 0.7);
         }
 
         .controls-hint {
-            position: absolute;
-            bottom: 20px;
             color: #666;
-            font-size: 12px;
+            font-size: 11px;
+            margin-top: 10px;
         }
 
-        /* 死亡提示 */
+        /* 死亡界面 */
         #death-screen {
             position: absolute;
             top: 0;
             left: 0;
             width: 100%;
             height: 100%;
-            background: rgba(0, 0, 0, 0.8);
+            background: rgba(0, 0, 0, 0.85);
             display: none;
             justify-content: center;
             align-items: center;
@@ -164,47 +163,35 @@
 
         #death-screen.show {
             display: flex;
-            animation: fadeIn 0.3s;
-        }
-
-        @keyframes fadeIn {
-            from { opacity: 0; }
-            to { opacity: 1; }
         }
 
         #death-screen .death-emoji {
-            font-size: 80px;
-            animation: spin 1s ease-in-out;
-        }
-
-        @keyframes spin {
-            from { transform: rotate(0deg) scale(0); }
-            to { transform: rotate(360deg) scale(1); }
+            font-size: 60px;
         }
 
         #death-screen .death-text {
             color: #e74c3c;
-            font-size: 32px;
-            margin: 20px 0;
+            font-size: 28px;
+            margin: 15px 0;
         }
 
         #death-screen .death-reason {
             color: #ff6b6b;
-            font-size: 18px;
-            margin-bottom: 30px;
+            font-size: 16px;
+            margin-bottom: 20px;
         }
 
         #death-screen .death-count {
             color: #ffe66d;
-            font-size: 16px;
-            margin-bottom: 20px;
+            font-size: 14px;
+            margin-bottom: 15px;
         }
 
         .retry-btn {
             background: #4ecdc4;
             color: #1a1a2e;
-            font-size: 18px;
-            padding: 10px 30px;
+            font-size: 16px;
+            padding: 10px 25px;
             border: none;
             border-radius: 20px;
             cursor: pointer;
@@ -232,19 +219,18 @@
 
         #win-screen.show {
             display: flex;
-            animation: fadeIn 0.5s;
         }
 
         #win-screen h2 {
-            font-size: 48px;
+            font-size: 36px;
             color: white;
             text-shadow: 2px 2px 0 #000;
         }
 
         #win-screen .stats {
             color: white;
-            font-size: 18px;
-            margin: 20px 0;
+            font-size: 16px;
+            margin: 15px 0;
         }
 
         /* HUD */
@@ -253,23 +239,23 @@
             top: 10px;
             left: 10px;
             color: white;
-            font-size: 16px;
+            font-size: 14px;
             z-index: 50;
             text-shadow: 1px 1px 2px #000;
+            display: none;
+            background: rgba(0,0,0,0.5);
+            padding: 8px 12px;
+            border-radius: 8px;
         }
 
-        #hud .deaths {
-            color: #e74c3c;
-        }
-
-        #hud .level {
-            color: #4ecdc4;
+        #hud div {
+            margin: 2px 0;
         }
 
         /* 提示框 */
         #hint-box {
             position: absolute;
-            bottom: 50px;
+            bottom: 60px;
             left: 50%;
             transform: translateX(-50%);
             background: rgba(0, 0, 0, 0.8);
@@ -280,32 +266,23 @@
             z-index: 50;
             opacity: 0;
             transition: opacity 0.3s;
+            white-space: nowrap;
         }
 
         #hint-box.show {
             opacity: 1;
         }
-
-        /* 隐藏元素动画 */
-        .hidden-danger {
-            animation: pulse 0.5s ease-in-out;
-        }
-
-        @keyframes pulse {
-            0%, 100% { transform: scale(1); }
-            50% { transform: scale(1.2); }
-        }
     </style>
 </head>
 <body>
     <div id="game-container">
-        <canvas id="game-canvas"></canvas>
+        <canvas id="game-canvas" width="960" height="540"></canvas>
         
         <!-- HUD -->
-        <div id="hud" style="display: none;">
-            <div class="deaths">💀 死亡: <span id="death-count">0</span></div>
-            <div class="level">🎮 关卡: <span id="level-num">1</span></div>
-            <div class="coins">⭐ 收集: <span id="coin-count">0</span>/<span id="coin-total">0</span></div>
+        <div id="hud">
+            <div>💀 死亡: <span id="death-count">0</span></div>
+            <div>🎮 关卡: <span id="level-num">1</span></div>
+            <div>⭐ 星星: <span id="coin-count">0</span>/<span id="coin-total">0</span></div>
         </div>
 
         <!-- 提示框 -->
@@ -319,14 +296,13 @@
             <div class="warning-box">
                 <p>⚠️ 警告：本游戏含有大量恶意陷阱 ⚠️</p>
                 <p>看似安全的地方可能最危险</p>
-                <p>看似危险的地方可能安全</p>
                 <p>不要相信任何东西！</p>
             </div>
 
             <div class="character-select">
                 <div class="char-option selected" data-char="😎">
                     <span class="emoji">😎</span>
-                    <span class="name">酷盖Emoji</span>
+                    <span class="name">酷盖</span>
                 </div>
                 <div class="char-option" data-char="🚀">
                     <span class="emoji">🚀</span>
@@ -342,7 +318,7 @@
                 </div>
             </div>
 
-            <button class="start-btn" id="start-btn">开始受苦！</button>
+            <button class="start-btn" id="start-btn">🎮 开始受苦！</button>
 
             <div class="controls-hint">
                 ⌨️ 方向键/WASD移动 | 空格跳跃 | R重试
@@ -362,7 +338,7 @@
         <div id="win-screen">
             <h2>🎉 恭喜过关！🎉</h2>
             <div class="stats">
-                <p>总死亡次数: <span id="final-deaths">0</span></p>
+                <p>死亡次数: <span id="final-deaths">0</span></p>
                 <p>收集星星: <span id="final-coins">0</span></p>
             </div>
             <button class="retry-btn" id="next-level-btn">下一关</button>
