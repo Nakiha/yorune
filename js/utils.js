@@ -48,20 +48,20 @@ const Utils = {
         particles.damageNumber(x, y, damage, color);
     },
     
-    // 显示连击 - 优化版
+    // 显示连击 - 简化版
     showCombo: (combo) => {
         if (combo < 3) return;
         particles.add(new Particle(
-            window.game?.canvas?.width / 2 || 400,
-            (window.game?.canvas?.height || 300) * 0.3,
+            400,
+            180,
             {
                 text: `${combo} COMBO!`,
                 color: combo >= 10 ? '#ff6b6b' : '#ffe66d',
                 size: Math.min(8 + combo, 16),
                 vx: 0,
-                vy: -1,
-                life: 30,
-                decay: 0.8
+                vy: -0.5,
+                life: 25,
+                decay: 0.7
             }
         ));
     },

@@ -185,8 +185,7 @@ class Player {
     
     heal(amount) {
         this.health = Math.min(this.maxHealth, this.health + amount);
-        audio.powerUp();
-        particles.heal(this.x, this.y);
+        // 移除重复的音效和粒子效果，由PowerUp.collect统一处理
     }
     
     addKill(points) {

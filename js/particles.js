@@ -64,7 +64,7 @@ class Particle {
 class ParticleSystem {
     constructor() {
         this.particles = [];
-        this.maxParticles = 300; // 粒子数量上限
+        this.maxParticles = 150; // 进一步降低粒子数量上限
     }
     
     add(particle) {
@@ -76,11 +76,18 @@ class ParticleSystem {
     }
     
     update() {
-        this.particles = this.particles.filter(p => p.update());
+        // 使用反向遍历优化性能
+        for (let i = this.particles.length - 1; i >= 0; i--) {
+            if (!this.particles[i].update()) {
+                this.particles.splice(i, 1);
+            }
+        }
     }
     
     draw(ctx) {
-        this.particles.forEach(p => p.draw(ctx));
+        for (let i = 0; i < this.particles.length; i++) {
+            this.particles[i].draw(ctx);
+        }
     }
     
     clear() {
@@ -89,33 +96,35 @@ class ParticleSystem {
     
     // 预设特效
     
-    // 爆炸效果
+    // 爆炸效果 - 限制最大数量
     explosion(x, y, color = '#ff6b6b', count = 20) {
-        for (let i = 0; i < count; i++) {
-            const angle = (Math.PI * 2 / count) * i + Utils.random(-0.2, 0.2);
+        const safeCount = Math.min(count, 15); // 最大15个粒子
+        for (let i = 0; i < safeCount; i++) {
+            const angle = (Math.PI * 2 / safeCount) * i + Utils.random(-0.2, 0.2);
             const speed = Utils.random(3, 8);
             this.add(new Particle(x, y, {
                 vx: Math.cos(angle) * speed,
                 vy: Math.sin(angle) * speed,
                 color: color,
-                size: Utils.random(3, 8),
-                life: Utils.random(20, 40)
+                size: Utils.random(3, 6),
+                life: Utils.random(15, 30)
             }));
         }
     }
     
-    // Emoji爆炸
+    // Emoji爆炸 - 限制最大数量
     emojiExplosion(x, y, emojis = ['💥', '🔥', '⚡', '✨'], count = 10) {
-        for (let i = 0; i < count; i++) {
+        const safeCount = Math.min(count, 10); // 最大10个emoji粒子
+        for (let i = 0; i < safeCount; i++) {
             const angle = Utils.random(0, Math.PI * 2);
-            const speed = Utils.random(2, 6);
+            const speed = Utils.random(2, 5);
             this.add(new Particle(x, y, {
                 vx: Math.cos(angle) * speed,
                 vy: Math.sin(angle) * speed,
                 emoji: Utils.randomChoice(emojis),
-                size: Utils.random(1, 2),
-                life: Utils.random(30, 50),
-                rotationSpeed: Utils.random(-0.2, 0.2)
+                size: 1,
+                life: Utils.random(20, 35),
+                rotationSpeed: Utils.random(-0.1, 0.1)
             }));
         }
     }
@@ -133,27 +142,27 @@ class ParticleSystem {
         }));
     }
     
-    // 治疗效果
+    // 治疗效果 - 减少粒子数量
     heal(x, y) {
-        for (let i = 0; i < 5; i++) {
-            this.add(new Particle(x + Utils.random(-20, 20), y + Utils.random(-20, 20), {
+        for (let i = 0; i < 3; i++) {
+            this.add(new Particle(x + Utils.random(-15, 15), y + Utils.random(-15, 15), {
                 emoji: '❤️',
-                size: Utils.random(0.8, 1.5),
+                size: 1,
                 vy: -2,
-                life: 40
+                life: 30
             }));
         }
     }
     
-    // 升级效果
+    // 升级效果 - 减少粒子数量
     levelUp(x, y) {
-        for (let i = 0; i < 15; i++) {
+        for (let i = 0; i < 8; i++) {
             this.add(new Particle(x, y, {
-                emoji: Utils.randomChoice(['⭐', '✨', '🌟', '💫']),
-                size: Utils.random(1, 2),
-                vx: Utils.random(-3, 3),
-                vy: Utils.random(-5, -2),
-                life: 50
+                emoji: Utils.randomChoice(['⭐', '✨', '🌟']),
+                size: 1,
+                vx: Utils.random(-2, 2),
+                vy: Utils.random(-3, -1),
+                life: 30
             }));
         }
     }
@@ -168,35 +177,34 @@ class ParticleSystem {
         }));
     }
     
-    // 死亡效果（敌人专用）
+    // 死亡效果（敌人专用）- 减少粒子数量
     enemyDeath(x, y, memeType) {
         const memeEffects = {
-            'doge': { emojis: ['🐶', '🐕', '🦮'], color: '#f39c12' },
+            'doge': { emojis: ['🐶', '🐕'], color: '#f39c12' },
             'pepe': { emojis: ['🐸', '🌿'], color: '#27ae60' },
-            'clown': { emojis: ['🤡', '🎪', '🎈'], color: '#e74c3c' },
-            'skull': { emojis: ['💀', '☠️', '👻'], color: '#95a5a6' },
-            'crying': { emojis: ['😭', '😢', '💧'], color: '#3498db' },
-            'fire': { emojis: ['🔥', '💥', '⚡'], color: '#e74c3c' },
-            'think': { emojis: ['🤔', '💭', '❓'], color: '#9b59b6' },
-            'default': { emojis: ['💥', '✨', '💫'], color: '#ff6b6b' }
+            'clown': { emojis: ['🤡', '🎈'], color: '#e74c3c' },
+            'skull': { emojis: ['💀', '👻'], color: '#95a5a6' },
+            'crying': { emojis: ['😭', '💧'], color: '#3498db' },
+            'fire': { emojis: ['🔥', '💥'], color: '#e74c3c' },
+            'think': { emojis: ['🤔', '❓'], color: '#9b59b6' },
+            'default': { emojis: ['💥', '✨'], color: '#ff6b6b' }
         };
         
         const effect = memeEffects[memeType] || memeEffects['default'];
-        this.emojiExplosion(x, y, effect.emojis, 15);
-        this.explosion(x, y, effect.color, 10);
+        this.emojiExplosion(x, y, effect.emojis, 6); // 减少emoji粒子
+        this.explosion(x, y, effect.color, 5); // 减少普通粒子
     }
     
-    // Boss出现效果
+    // Boss出现效果 - 减少粒子数量
     bossSpawn(x, y) {
-        for (let i = 0; i < 30; i++) {
+        for (let i = 0; i < 15; i++) {
             const angle = Utils.random(0, Math.PI * 2);
-            const dist = Utils.random(50, 150);
             this.add(new Particle(x, y, {
                 vx: Math.cos(angle) * 3,
                 vy: Math.sin(angle) * 3,
-                emoji: Utils.randomChoice(['⚠️', '💀', '🔥', '⚡', '👁️']),
-                size: Utils.random(1.5, 2.5),
-                life: 60
+                emoji: Utils.randomChoice(['⚠️', '💀', '🔥', '⚡']),
+                size: 1.5,
+                life: 40
             }));
         }
     }
