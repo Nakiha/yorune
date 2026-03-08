@@ -1,0 +1,375 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>🐱 Emoji vs Meme - 梗图大冒险 🐱</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            background: #1a1a2e;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            overflow: hidden;
+        }
+
+        #game-container {
+            position: relative;
+            width: 960px;
+            height: 540px;
+            background: #0f0f1a;
+            border: 4px solid #4a4a6a;
+            border-radius: 8px;
+            overflow: hidden;
+        }
+
+        canvas {
+            display: block;
+        }
+
+        /* 开始界面 */
+        #start-screen {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            z-index: 100;
+        }
+
+        #start-screen h1 {
+            font-size: 48px;
+            color: #ffe66d;
+            text-shadow: 3px 3px 0 #e74c3c, 6px 6px 0 #000;
+            margin-bottom: 20px;
+            animation: shake 0.5s ease-in-out infinite;
+        }
+
+        @keyframes shake {
+            0%, 100% { transform: translateX(0); }
+            25% { transform: translateX(-2px) rotate(-1deg); }
+            75% { transform: translateX(2px) rotate(1deg); }
+        }
+
+        .subtitle {
+            font-size: 20px;
+            color: #4ecdc4;
+            margin-bottom: 40px;
+        }
+
+        .warning-box {
+            background: rgba(231, 76, 60, 0.2);
+            border: 2px solid #e74c3c;
+            border-radius: 10px;
+            padding: 20px;
+            margin: 20px;
+            max-width: 600px;
+            text-align: center;
+        }
+
+        .warning-box p {
+            color: #ff6b6b;
+            font-size: 14px;
+            margin: 5px 0;
+        }
+
+        .character-select {
+            display: flex;
+            gap: 20px;
+            margin: 30px 0;
+        }
+
+        .char-option {
+            background: rgba(255, 255, 255, 0.1);
+            border: 3px solid transparent;
+            border-radius: 15px;
+            padding: 15px;
+            cursor: pointer;
+            transition: all 0.3s;
+            text-align: center;
+        }
+
+        .char-option:hover {
+            background: rgba(255, 255, 255, 0.2);
+            transform: scale(1.1);
+        }
+
+        .char-option.selected {
+            border-color: #ffe66d;
+            box-shadow: 0 0 20px rgba(255, 230, 109, 0.5);
+        }
+
+        .char-option .emoji {
+            font-size: 48px;
+            display: block;
+        }
+
+        .char-option .name {
+            color: white;
+            font-size: 14px;
+            margin-top: 5px;
+        }
+
+        .start-btn {
+            background: linear-gradient(135deg, #e74c3c, #c0392b);
+            color: white;
+            font-size: 24px;
+            padding: 15px 50px;
+            border: none;
+            border-radius: 30px;
+            cursor: pointer;
+            transition: all 0.3s;
+            margin-top: 20px;
+        }
+
+        .start-btn:hover {
+            transform: scale(1.1);
+            box-shadow: 0 0 30px rgba(231, 76, 60, 0.7);
+        }
+
+        .controls-hint {
+            position: absolute;
+            bottom: 20px;
+            color: #666;
+            font-size: 12px;
+        }
+
+        /* 死亡提示 */
+        #death-screen {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.8);
+            display: none;
+            justify-content: center;
+            align-items: center;
+            flex-direction: column;
+            z-index: 100;
+        }
+
+        #death-screen.show {
+            display: flex;
+            animation: fadeIn 0.3s;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; }
+            to { opacity: 1; }
+        }
+
+        #death-screen .death-emoji {
+            font-size: 80px;
+            animation: spin 1s ease-in-out;
+        }
+
+        @keyframes spin {
+            from { transform: rotate(0deg) scale(0); }
+            to { transform: rotate(360deg) scale(1); }
+        }
+
+        #death-screen .death-text {
+            color: #e74c3c;
+            font-size: 32px;
+            margin: 20px 0;
+        }
+
+        #death-screen .death-reason {
+            color: #ff6b6b;
+            font-size: 18px;
+            margin-bottom: 30px;
+        }
+
+        #death-screen .death-count {
+            color: #ffe66d;
+            font-size: 16px;
+            margin-bottom: 20px;
+        }
+
+        .retry-btn {
+            background: #4ecdc4;
+            color: #1a1a2e;
+            font-size: 18px;
+            padding: 10px 30px;
+            border: none;
+            border-radius: 20px;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+
+        .retry-btn:hover {
+            transform: scale(1.1);
+        }
+
+        /* 过关界面 */
+        #win-screen {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(135deg, #27ae60 0%, #2ecc71 100%);
+            display: none;
+            justify-content: center;
+            align-items: center;
+            flex-direction: column;
+            z-index: 100;
+        }
+
+        #win-screen.show {
+            display: flex;
+            animation: fadeIn 0.5s;
+        }
+
+        #win-screen h2 {
+            font-size: 48px;
+            color: white;
+            text-shadow: 2px 2px 0 #000;
+        }
+
+        #win-screen .stats {
+            color: white;
+            font-size: 18px;
+            margin: 20px 0;
+        }
+
+        /* HUD */
+        #hud {
+            position: absolute;
+            top: 10px;
+            left: 10px;
+            color: white;
+            font-size: 16px;
+            z-index: 50;
+            text-shadow: 1px 1px 2px #000;
+        }
+
+        #hud .deaths {
+            color: #e74c3c;
+        }
+
+        #hud .level {
+            color: #4ecdc4;
+        }
+
+        /* 提示框 */
+        #hint-box {
+            position: absolute;
+            bottom: 50px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: rgba(0, 0, 0, 0.8);
+            color: #ffe66d;
+            padding: 10px 20px;
+            border-radius: 5px;
+            font-size: 14px;
+            z-index: 50;
+            opacity: 0;
+            transition: opacity 0.3s;
+        }
+
+        #hint-box.show {
+            opacity: 1;
+        }
+
+        /* 隐藏元素动画 */
+        .hidden-danger {
+            animation: pulse 0.5s ease-in-out;
+        }
+
+        @keyframes pulse {
+            0%, 100% { transform: scale(1); }
+            50% { transform: scale(1.2); }
+        }
+    </style>
+</head>
+<body>
+    <div id="game-container">
+        <canvas id="game-canvas"></canvas>
+        
+        <!-- HUD -->
+        <div id="hud" style="display: none;">
+            <div class="deaths">💀 死亡: <span id="death-count">0</span></div>
+            <div class="level">🎮 关卡: <span id="level-num">1</span></div>
+            <div class="coins">⭐ 收集: <span id="coin-count">0</span>/<span id="coin-total">0</span></div>
+        </div>
+
+        <!-- 提示框 -->
+        <div id="hint-box"></div>
+
+        <!-- 开始界面 -->
+        <div id="start-screen">
+            <h1>🐱 Emoji vs Meme 🐱</h1>
+            <p class="subtitle">—— 梗图大冒险 ——</p>
+            
+            <div class="warning-box">
+                <p>⚠️ 警告：本游戏含有大量恶意陷阱 ⚠️</p>
+                <p>看似安全的地方可能最危险</p>
+                <p>看似危险的地方可能安全</p>
+                <p>不要相信任何东西！</p>
+            </div>
+
+            <div class="character-select">
+                <div class="char-option selected" data-char="😎">
+                    <span class="emoji">😎</span>
+                    <span class="name">酷盖Emoji</span>
+                </div>
+                <div class="char-option" data-char="🚀">
+                    <span class="emoji">🚀</span>
+                    <span class="name">火箭人</span>
+                </div>
+                <div class="char-option" data-char="🎮">
+                    <span class="emoji">🎮</span>
+                    <span class="name">玩家</span>
+                </div>
+                <div class="char-option" data-char="🦆">
+                    <span class="emoji">🦆</span>
+                    <span class="name">鸭子</span>
+                </div>
+            </div>
+
+            <button class="start-btn" id="start-btn">开始受苦！</button>
+
+            <div class="controls-hint">
+                ⌨️ 方向键/WASD移动 | 空格跳跃 | R重试
+            </div>
+        </div>
+
+        <!-- 死亡界面 -->
+        <div id="death-screen">
+            <div class="death-emoji">💀</div>
+            <div class="death-text">你死了！</div>
+            <div class="death-reason" id="death-reason">被狗头砸死了</div>
+            <div class="death-count">第 <span id="death-num">0</span> 次死亡</div>
+            <button class="retry-btn" id="retry-btn">再来！(R)</button>
+        </div>
+
+        <!-- 过关界面 -->
+        <div id="win-screen">
+            <h2>🎉 恭喜过关！🎉</h2>
+            <div class="stats">
+                <p>总死亡次数: <span id="final-deaths">0</span></p>
+                <p>收集星星: <span id="final-coins">0</span></p>
+            </div>
+            <button class="retry-btn" id="next-level-btn">下一关</button>
+        </div>
+    </div>
+
+    <script src="js/levels.js"></script>
+    <script src="js/game.js"></script>
+</body>
+</html>
