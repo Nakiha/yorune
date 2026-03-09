@@ -3,156 +3,126 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-    <title>🔥 Emoji大战Meme - 互联网守护者 🔥</title>
-    <link rel="stylesheet" href="css/style.css">
+    <title>Game Selector</title>
+    <link rel="stylesheet" href="css/selector.css">
 </head>
 <body>
-    <div id="game-container">
-        <!-- 开始界面 -->
-        <div id="start-screen" class="screen active">
-            <div class="title">
-                <h1>🔥 EMOJI大战MEME 🔥</h1>
-                <p class="subtitle">—— 互联网守护者 ——</p>
+    <!-- Background Effects -->
+    <div class="pixel-bg"></div>
+    <div class="crt-effect"></div>
+
+    <!-- Floating Pixels -->
+    <div class="pixel-container" id="pixelContainer"></div>
+
+    <!-- Corner Decorations -->
+    <div class="pixel-corner top-left"></div>
+    <div class="pixel-corner top-right"></div>
+    <div class="pixel-corner bottom-left"></div>
+    <div class="pixel-corner bottom-right"></div>
+
+    <!-- Main Content -->
+    <div class="container">
+        <!-- Title Section -->
+        <section class="title-section">
+            <h1 class="main-title">SELECT GAME</h1>
+            <p class="subtitle">- CHOOSE YOUR ADVENTURE -</p>
+            <div class="pixel-stars">
+                <div class="star"></div>
+                <div class="star"></div>
+                <div class="star"></div>
+                <div class="star"></div>
+                <div class="star"></div>
             </div>
-            <div class="story-box">
-                <p>公元2026年，互联网某处...</p>
-                <p>一股神秘的<strong>MEME病毒</strong>开始侵蚀Emoji王国！</p>
-                <p>狗头大军、Pepe军团、小丑部队...</p>
-                <p>所有的网络梗都变成了实体怪物！</p>
-                <p class="highlight">你，是最后一名Emoji战士...</p>
-                <p class="glitch">保护互联网，还是...成为MEME的一员？</p>
+        </section>
+
+        <!-- Games Grid -->
+        <div class="games-grid">
+            <!-- Blackhole Game -->
+            <div class="game-card" onclick="location.href='blackhole/index.html'">
+                <span class="game-icon">&#9650;</span>
+                <h2 class="game-title">VAMPIRE SURVIVORS</h2>
+                <p class="game-desc">
+                    Survive the endless waves of enemies!<br>
+                    Collect power-ups, level up, and<br>
+                    become the ultimate survivor!
+                </p>
+                <a href="blackhole/index.html" class="start-btn">START GAME</a>
             </div>
-            <div class="character-select">
-                <h3>选择你的Emoji战士：</h3>
-                <div class="characters">
-                    <button class="char-btn selected" data-char="😎">
-                        <span class="emoji">😎</span>
-                        <span class="name">酷盖</span>
-                        <span class="desc">墨镜护体，防御+20%</span>
-                    </button>
-                    <button class="char-btn" data-char="🚀">
-                        <span class="emoji">🚀</span>
-                        <span class="name">火箭人</span>
-                        <span class="desc">速度+30%</span>
-                    </button>
-                    <button class="char-btn" data-char="🎮">
-                        <span class="emoji">🎮</span>
-                        <span class="name">玩家</span>
-                        <span class="desc">攻击+25%</span>
-                    </button>
-                    <button class="char-btn" data-char="🌈">
-                        <span class="emoji">🌈</span>
-                        <span class="name">彩虹使者</span>
-                        <span class="desc">幸运+40%</span>
-                    </button>
-                </div>
-            </div>
-            <button id="start-btn" class="glow-btn">开始战斗！</button>
-            <div class="controls-hint">
-                <p>⌨️ WASD/方向键移动 | J/空格攻击 | K技能 | L切换武器</p>
-                <p>📱 触屏设备支持虚拟摇杆</p>
+
+            <!-- Platformer Game -->
+            <div class="game-card" onclick="location.href='platformer/index.html'">
+                <span class="game-icon">&#9632;</span>
+                <h2 class="game-title">MEME PLATFORMER</h2>
+                <p class="game-desc">
+                    Jump through meme-filled worlds!<br>
+                    Dodge obstacles, collect coins,<br>
+                    and reach the goal!
+                </p>
+                <a href="platformer/index.html" class="start-btn">START GAME</a>
             </div>
         </div>
 
-        <!-- 游戏界面 -->
-        <div id="game-screen" class="screen">
-            <canvas id="game-canvas"></canvas>
-            <div id="hud">
-                <div class="hud-left">
-                    <div class="health-bar">
-                        <span class="label">❤️ HP</span>
-                        <div class="bar">
-                            <div id="health-fill" class="fill health"></div>
-                        </div>
-                        <span id="health-text">100/100</span>
-                    </div>
-                    <div class="energy-bar">
-                        <span class="label">⚡ 能量</span>
-                        <div class="bar">
-                            <div id="energy-fill" class="fill energy"></div>
-                        </div>
-                    </div>
-                </div>
-                <div class="hud-center">
-                    <div id="wave-info">波次: <span id="wave-num">1</span> | 敌人: <span id="enemy-count">0</span></div>
-                    <div id="score">分数: <span id="score-num">0</span></div>
-                </div>
-                <div class="hud-right">
-                    <div class="weapon-display">
-                        <span class="label">武器:</span>
-                        <span id="current-weapon">🔥</span>
-                    </div>
-                    <div class="combo-display">
-                        <span class="label">连击:</span>
-                        <span id="combo-num">0</span>
-                    </div>
-                </div>
-            </div>
-            <!-- 移动端虚拟摇杆 -->
-            <div id="mobile-controls">
-                <div id="joystick-area">
-                    <div id="joystick-base">
-                        <div id="joystick-stick"></div>
-                    </div>
-                </div>
-                <div id="action-buttons">
-                    <button id="btn-attack" class="action-btn">⚔️</button>
-                    <button id="btn-skill" class="action-btn">✨</button>
-                    <button id="btn-weapon" class="action-btn">🔄</button>
-                </div>
-            </div>
-        </div>
-
-        <!-- 暂停界面 -->
-        <div id="pause-screen" class="screen">
-            <div class="pause-content">
-                <h2>⏸️ 游戏暂停</h2>
-                <button id="resume-btn" class="glow-btn">继续游戏</button>
-                <button id="restart-btn" class="glow-btn secondary">重新开始</button>
-                <button id="quit-btn" class="glow-btn danger">返回主菜单</button>
-            </div>
-        </div>
-
-        <!-- 游戏结束界面 -->
-        <div id="gameover-screen" class="screen">
-            <div class="gameover-content">
-                <h2 id="gameover-title">💀 GAME OVER 💀</h2>
-                <p id="gameover-message">你被MEME吞噬了...</p>
-                <div class="stats">
-                    <p>最终分数: <span id="final-score">0</span></p>
-                    <p>击杀敌人: <span id="final-kills">0</span></p>
-                    <p>最高连击: <span id="final-combo">0</span></p>
-                    <p>到达波次: <span id="final-wave">1</span></p>
-                </div>
-                <button id="retry-btn" class="glow-btn">再来一局！</button>
-                <button id="menu-btn" class="glow-btn secondary">返回主菜单</button>
-            </div>
-        </div>
-
-        <!-- 胜利界面 -->
-        <div id="victory-screen" class="screen">
-            <div class="victory-content">
-                <h2>🎉 胜利！🎉</h2>
-                <p class="victory-message">你成功守护了Emoji王国！</p>
-                <div class="stats">
-                    <p>最终分数: <span id="victory-score">0</span></p>
-                    <p>击杀敌人: <span id="victory-kills">0</span></p>
-                </div>
-                <button id="next-level-btn" class="glow-btn">下一关</button>
-            </div>
-        </div>
+        <!-- Footer -->
+        <footer class="footer">
+            <p class="footer-text">PRESS START TO BEGIN</p>
+        </footer>
     </div>
 
-    <!-- 音效系统 -->
-    <script src="js/audio.js"></script>
-    <!-- 游戏核心 -->
-    <script src="js/utils.js"></script>
-    <script src="js/particles.js"></script>
-    <script src="js/player.js"></script>
-    <script src="js/enemies.js"></script>
-    <script src="js/weapons.js"></script>
-    <script src="js/levels.js"></script>
-    <script src="js/ui.js"></script>
-    <script src="js/game.js"></script>
+    <!-- Generate Floating Pixels -->
+    <script>
+        // Create floating pixel elements
+        const container = document.getElementById('pixelContainer');
+        const pixelCount = 30;
+
+        for (let i = 0; i < pixelCount; i++) {
+            const pixel = document.createElement('div');
+            pixel.className = 'pixel';
+            pixel.style.left = Math.random() * 100 + '%';
+            pixel.style.animationDelay = Math.random() * 15 + 's';
+            pixel.style.animationDuration = (15 + Math.random() * 10) + 's';
+            container.appendChild(pixel);
+        }
+
+        // Add click sound effect simulation
+        document.querySelectorAll('.game-card').forEach(card => {
+            card.addEventListener('mouseenter', () => {
+                card.style.transition = 'all 0.1s steps(2)';
+                setTimeout(() => {
+                    card.style.transition = 'all 0.3s ease';
+                }, 100);
+            });
+        });
+
+        // Keyboard navigation
+        document.addEventListener('keydown', (e) => {
+            const cards = document.querySelectorAll('.game-card');
+            const activeElement = document.activeElement;
+
+            if (e.key === 'ArrowRight' || e.key === 'ArrowLeft') {
+                const currentIndex = Array.from(cards).indexOf(activeElement);
+                let nextIndex;
+
+                if (e.key === 'ArrowRight') {
+                    nextIndex = (currentIndex + 1) % cards.length;
+                } else {
+                    nextIndex = (currentIndex - 1 + cards.length) % cards.length;
+                }
+
+                cards[nextIndex].focus();
+            }
+
+            if (e.key === 'Enter' && activeElement.classList.contains('game-card')) {
+                const link = activeElement.querySelector('.start-btn');
+                if (link) {
+                    window.location.href = link.href;
+                }
+            }
+        });
+
+        // Make cards focusable
+        document.querySelectorAll('.game-card').forEach(card => {
+            card.setAttribute('tabindex', '0');
+        });
+    </script>
 </body>
 </html>
