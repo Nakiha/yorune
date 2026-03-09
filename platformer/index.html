@@ -2,350 +2,939 @@
 <html lang="zh-CN">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>🐱 Emoji vs Meme - 梗图大冒险 🐱</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>Meme Platformer - Troll Edition</title>
     <style>
+        @import url('https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap');
+
         * {
             margin: 0;
             padding: 0;
             box-sizing: border-box;
         }
 
+        :root {
+            --bg-dark: #0a0a0f;
+            --bg-card: #12121a;
+            --accent-purple: #9b4dff;
+            --accent-cyan: #00f5ff;
+            --accent-pink: #ff4da6;
+            --accent-red: #ff3333;
+            --accent-green: #33ff66;
+            --accent-orange: #ff6b35;
+            --accent-yellow: #ffff00;
+            --text-primary: #ffffff;
+            --text-secondary: #8888aa;
+        }
+
         body {
-            background: #1a1a2e;
+            background: var(--bg-dark);
+            min-height: 100vh;
+            font-family: 'Press Start 2P', cursive;
+            color: var(--text-primary);
+            overflow: hidden;
             display: flex;
             justify-content: center;
             align-items: center;
-            min-height: 100vh;
-            font-family: 'Segoe UI', Tahoma, sans-serif;
-            overflow: hidden;
         }
 
-        #game-container {
-            position: relative;
-            width: 960px;
-            height: 540px;
-            background: #0f0f1a;
-            border: 4px solid #4a4a6a;
-            border-radius: 8px;
-            overflow: hidden;
-        }
-
-        #game-canvas {
-            position: absolute;
-            top: 0;
-            left: 0;
-            width: 960px;
-            height: 540px;
-        }
-
-        /* 开始界面 */
-        #start-screen {
-            position: absolute;
+        body::before {
+            content: '';
+            position: fixed;
             top: 0;
             left: 0;
             width: 100%;
             height: 100%;
-            background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
-            display: flex;
-            flex-direction: column;
-            justify-content: flex-start;
-            align-items: center;
-            z-index: 100;
-            padding: 20px;
-            overflow-y: auto;
+            background: repeating-linear-gradient(
+                0deg,
+                transparent,
+                transparent 2px,
+                rgba(0, 0, 0, 0.1) 2px,
+                rgba(0, 0, 0, 0.1) 4px
+            );
+            pointer-events: none;
+            z-index: 1000;
         }
 
-        #start-screen h1 {
-            font-size: 36px;
-            color: #ffe66d;
-            text-shadow: 2px 2px 0 #e74c3c, 4px 4px 0 #000;
-            margin-top: 10px;
-            margin-bottom: 5px;
+        #gameContainer {
+            position: relative;
         }
 
-        .subtitle {
-            font-size: 16px;
-            color: #4ecdc4;
-            margin-bottom: 10px;
-        }
-        
-        .warning-box {
-            background: rgba(231, 76, 60, 0.2);
-            border: 2px solid #e74c3c;
-            border-radius: 8px;
-            padding: 10px 15px;
-            margin: 10px 0;
-            max-width: 500px;
-            text-align: center;
-        }
-
-        .warning-box p {
-            color: #ff6b6b;
-            font-size: 12px;
-            margin: 3px 0;
-        }
-
-        .character-select {
-            display: flex;
-            gap: 15px;
-            margin: 15px 0;
-        }
-
-        .char-option {
-            background: rgba(255, 255, 255, 0.1);
-            border: 3px solid transparent;
-            border-radius: 12px;
-            padding: 10px;
-            cursor: pointer;
-            transition: all 0.3s;
-            text-align: center;
-        }
-
-        .char-option:hover {
-            background: rgba(255, 255, 255, 0.2);
-            transform: scale(1.05);
-        }
-
-        .char-option.selected {
-            border-color: #ffe66d;
-            box-shadow: 0 0 15px rgba(255, 230, 109, 0.5);
-        }
-
-        .char-option .emoji {
-            font-size: 36px;
+        #gameCanvas {
             display: block;
+            image-rendering: pixelated;
+            border: 4px solid var(--accent-cyan);
+            box-shadow: 0 0 30px rgba(0, 245, 255, 0.5);
         }
 
-        .char-option .name {
-            color: white;
-            font-size: 12px;
-            margin-top: 3px;
-        }
-
-        .start-btn {
-            background: linear-gradient(135deg, #e74c3c, #c0392b);
-            color: white;
-            font-size: 20px;
-            padding: 12px 40px;
-            border: none;
-            border-radius: 25px;
-            cursor: pointer;
-            transition: all 0.3s;
-            margin: 15px 0;
-        }
-
-        .start-btn:hover {
-            transform: scale(1.1);
-            box-shadow: 0 0 20px rgba(231, 76, 60, 0.7);
-        }
-
-        .controls-hint {
-            color: #666;
-            font-size: 11px;
-            margin-top: 10px;
-        }
-
-        /* 死亡界面 */
-        #death-screen {
+        #hud {
             position: absolute;
+            top: 10px;
+            left: 10px;
+            right: 10px;
+            display: flex;
+            justify-content: space-between;
+            pointer-events: none;
+            z-index: 10;
+        }
+
+        .hud-item {
+            background: rgba(10, 10, 15, 0.8);
+            padding: 8px 15px;
+            border: 2px solid var(--accent-cyan);
+            font-size: 10px;
+        }
+
+        .hud-label {
+            color: var(--text-secondary);
+            margin-right: 8px;
+        }
+
+        .hud-value {
+            color: var(--accent-cyan);
+        }
+
+        .death-count .hud-value {
+            color: var(--accent-red);
+        }
+
+        /* Modals */
+        .modal {
+            display: none;
+            position: fixed;
             top: 0;
             left: 0;
             width: 100%;
             height: 100%;
             background: rgba(0, 0, 0, 0.85);
-            display: none;
             justify-content: center;
             align-items: center;
-            flex-direction: column;
             z-index: 100;
         }
 
-        #death-screen.show {
-            display: flex;
+        .modal-content {
+            background: var(--bg-card);
+            padding: 40px;
+            text-align: center;
+            border: 4px solid var(--accent-purple);
+            box-shadow: 0 0 40px rgba(155, 77, 255, 0.5);
         }
 
-        #death-screen .death-emoji {
-            font-size: 60px;
-        }
-
-        #death-screen .death-text {
-            color: #e74c3c;
-            font-size: 28px;
-            margin: 15px 0;
-        }
-
-        #death-screen .death-reason {
-            color: #ff6b6b;
-            font-size: 16px;
+        .modal-title {
+            font-size: 20px;
             margin-bottom: 20px;
         }
 
-        #death-screen .death-count {
-            color: #ffe66d;
-            font-size: 14px;
-            margin-bottom: 15px;
+        .modal-title.win {
+            color: var(--accent-green);
+            text-shadow: 0 0 20px var(--accent-green);
         }
 
-        .retry-btn {
-            background: #4ecdc4;
-            color: #1a1a2e;
-            font-size: 16px;
-            padding: 10px 25px;
+        .modal-title.lose {
+            color: var(--accent-red);
+            text-shadow: 0 0 20px var(--accent-red);
+        }
+
+        .modal-stats {
+            margin: 20px 0;
+            font-size: 10px;
+        }
+
+        .modal-stat {
+            margin: 10px 0;
+            color: var(--text-secondary);
+        }
+
+        .modal-stat span {
+            color: var(--accent-cyan);
+        }
+
+        .modal-btn {
+            background: linear-gradient(135deg, var(--accent-purple), var(--accent-pink));
+            color: var(--text-primary);
+            font-family: 'Press Start 2P', cursive;
+            font-size: 12px;
+            padding: 15px 30px;
             border: none;
-            border-radius: 20px;
             cursor: pointer;
-            transition: all 0.3s;
+            transition: all 0.2s;
+            margin: 5px;
         }
 
-        .retry-btn:hover {
-            transform: scale(1.1);
+        .modal-btn:hover {
+            transform: scale(1.05);
+            box-shadow: 0 0 30px var(--accent-purple);
         }
 
-        /* 过关界面 */
-        #win-screen {
-            position: absolute;
+        /* Start Screen */
+        #startScreen {
+            position: fixed;
             top: 0;
             left: 0;
             width: 100%;
             height: 100%;
-            background: linear-gradient(135deg, #27ae60 0%, #2ecc71 100%);
-            display: none;
+            background: var(--bg-dark);
+            display: flex;
+            flex-direction: column;
             justify-content: center;
             align-items: center;
-            flex-direction: column;
-            z-index: 100;
+            z-index: 200;
         }
 
-        #win-screen.show {
-            display: flex;
+        .start-title {
+            font-size: 24px;
+            color: var(--accent-cyan);
+            text-shadow: 4px 4px 0 var(--accent-purple), 0 0 30px var(--accent-cyan);
+            margin-bottom: 10px;
+            animation: titlePulse 2s infinite;
         }
 
-        #win-screen h2 {
-            font-size: 36px;
-            color: white;
-            text-shadow: 2px 2px 0 #000;
+        @keyframes titlePulse {
+            0%, 100% { text-shadow: 4px 4px 0 var(--accent-purple), 0 0 30px var(--accent-cyan); }
+            50% { text-shadow: -4px -4px 0 var(--accent-purple), 0 0 50px var(--accent-pink); }
         }
 
-        #win-screen .stats {
-            color: white;
-            font-size: 16px;
-            margin: 15px 0;
+        .start-subtitle {
+            font-size: 10px;
+            color: var(--accent-red);
+            margin-bottom: 40px;
+            animation: blink 1s infinite;
         }
 
-        /* HUD */
-        #hud {
-            position: absolute;
-            top: 10px;
-            left: 10px;
-            color: white;
+        @keyframes blink {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.3; }
+        }
+
+        .start-btn {
+            background: linear-gradient(135deg, var(--accent-cyan), #00a8b5);
+            color: var(--text-primary);
+            font-family: 'Press Start 2P', cursive;
             font-size: 14px;
-            z-index: 50;
-            text-shadow: 1px 1px 2px #000;
-            display: none;
-            background: rgba(0,0,0,0.5);
-            padding: 8px 12px;
-            border-radius: 8px;
+            padding: 20px 40px;
+            border: none;
+            cursor: pointer;
+            transition: all 0.2s;
         }
 
-        #hud div {
-            margin: 2px 0;
+        .start-btn:hover {
+            box-shadow: 0 0 40px var(--accent-cyan);
+            transform: scale(1.05);
         }
 
-        /* 提示框 */
-        #hint-box {
+        .controls-info {
+            margin-top: 40px;
+            font-size: 8px;
+            color: var(--text-secondary);
+            text-align: center;
+            line-height: 2;
+        }
+
+        .warning-text {
+            color: var(--accent-red);
+            margin-top: 20px;
+            font-size: 8px;
+        }
+
+        /* Death Message */
+        #deathMessage {
             position: absolute;
-            bottom: 60px;
+            top: 50%;
             left: 50%;
-            transform: translateX(-50%);
-            background: rgba(0, 0, 0, 0.8);
-            color: #ffe66d;
-            padding: 10px 20px;
-            border-radius: 5px;
-            font-size: 14px;
-            z-index: 50;
+            transform: translate(-50%, -50%);
+            font-size: 16px;
+            color: var(--accent-red);
+            text-shadow: 0 0 20px var(--accent-red);
+            pointer-events: none;
             opacity: 0;
+            z-index: 50;
             transition: opacity 0.3s;
-            white-space: nowrap;
         }
 
-        #hint-box.show {
+        #deathMessage.show {
             opacity: 1;
+            animation: deathPulse 0.5s;
+        }
+
+        @keyframes deathPulse {
+            0% { transform: translate(-50%, -50%) scale(0.5); }
+            50% { transform: translate(-50%, -50%) scale(1.2); }
+            100% { transform: translate(-50%, -50%) scale(1); }
         }
     </style>
 </head>
 <body>
-    <div id="game-container">
-        <canvas id="game-canvas" width="960" height="540"></canvas>
-        
-        <!-- HUD -->
+    <div id="startScreen">
+        <h1 class="start-title">MEME PLATFORMER</h1>
+        <p class="start-subtitle">- TROLL EDITION -</p>
+        <button class="start-btn" onclick="startGame()">START GAME</button>
+        <div class="controls-info">
+            A/D or Arrow Keys - MOVE<br>
+            W/Space/Up - JUMP<br>
+            Reach the Flag to Complete Level
+        </div>
+        <p class="warning-text">WARNING: Nothing is what it seems...</p>
+    </div>
+
+    <div id="gameContainer">
+        <canvas id="gameCanvas"></canvas>
         <div id="hud">
-            <div>💀 死亡: <span id="death-count">0</span></div>
-            <div>🎮 关卡: <span id="level-num">1</span></div>
-            <div>⭐ 星星: <span id="coin-count">0</span>/<span id="coin-total">0</span></div>
-        </div>
-
-        <!-- 提示框 -->
-        <div id="hint-box"></div>
-
-        <!-- 开始界面 -->
-        <div id="start-screen">
-            <h1>🐱 Emoji vs Meme 🐱</h1>
-            <p class="subtitle">—— 梗图大冒险 ——</p>
-            
-            <div class="warning-box">
-                <p>⚠️ 警告：本游戏含有大量恶意陷阱 ⚠️</p>
-                <p>看似安全的地方可能最危险</p>
-                <p>不要相信任何东西！</p>
+            <div class="hud-item death-count">
+                <span class="hud-label">DEATHS:</span>
+                <span class="hud-value" id="deathCount">0</span>
             </div>
-
-            <div class="character-select">
-                <div class="char-option selected" data-char="😎">
-                    <span class="emoji">😎</span>
-                    <span class="name">酷盖</span>
-                </div>
-                <div class="char-option" data-char="🚀">
-                    <span class="emoji">🚀</span>
-                    <span class="name">火箭人</span>
-                </div>
-                <div class="char-option" data-char="🎮">
-                    <span class="emoji">🎮</span>
-                    <span class="name">玩家</span>
-                </div>
-                <div class="char-option" data-char="🦆">
-                    <span class="emoji">🦆</span>
-                    <span class="name">鸭子</span>
-                </div>
-            </div>
-
-            <button class="start-btn" id="start-btn">🎮 开始受苦！</button>
-
-            <div class="controls-hint">
-                ⌨️ 方向键/WASD移动 | 空格跳跃 | R重试
+            <div class="hud-item">
+                <span class="hud-label">LEVEL:</span>
+                <span class="hud-value" id="currentLevel">1/3</span>
             </div>
         </div>
+        <div id="deathMessage"></div>
+    </div>
 
-        <!-- 死亡界面 -->
-        <div id="death-screen">
-            <div class="death-emoji">💀</div>
-            <div class="death-text">你死了！</div>
-            <div class="death-reason" id="death-reason">被狗头砸死了</div>
-            <div class="death-count">第 <span id="death-num">0</span> 次死亡</div>
-            <button class="retry-btn" id="retry-btn">再来！(R)</button>
-        </div>
-
-        <!-- 过关界面 -->
-        <div id="win-screen">
-            <h2>🎉 恭喜过关！🎉</h2>
-            <div class="stats">
-                <p>死亡次数: <span id="final-deaths">0</span></p>
-                <p>收集星星: <span id="final-coins">0</span></p>
+    <div id="winModal" class="modal">
+        <div class="modal-content">
+            <h2 class="modal-title win">VICTORY!</h2>
+            <div class="modal-stats">
+                <p class="modal-stat">Total Deaths: <span id="finalDeaths">0</span></p>
+                <p class="modal-stat">You are a true meme warrior!</p>
             </div>
-            <button class="retry-btn" id="next-level-btn">下一关</button>
+            <button class="modal-btn" onclick="restartGame()">PLAY AGAIN</button>
         </div>
     </div>
 
-    <script src="js/levels.js"></script>
-    <script src="js/game.js"></script>
+    <div id="levelModal" class="modal">
+        <div class="modal-content">
+            <h2 class="modal-title" style="color: var(--accent-green);">LEVEL COMPLETE!</h2>
+            <p style="color: var(--text-secondary); font-size: 10px; margin: 20px 0;">Deaths so far: <span id="levelDeaths">0</span></p>
+            <button class="modal-btn" onclick="nextLevel()">NEXT LEVEL</button>
+        </div>
+    </div>
+
+    <script>
+        const CONFIG = {
+            CANVAS_WIDTH: 800,
+            CANVAS_HEIGHT: 480,
+            TILE_SIZE: 32,
+            GRAVITY: 0.6,
+            JUMP_FORCE: -12,
+            PLAYER_SPEED: 4,
+            PLAYER_SIZE: 24
+        };
+
+        let canvas, ctx;
+        let gameRunning = false;
+        let currentLevel = 0;
+        let deaths = 0;
+
+        let player = {
+            x: 50,
+            y: 300,
+            vx: 0,
+            vy: 0,
+            size: CONFIG.PLAYER_SIZE,
+            onGround: false,
+            alive: true
+        };
+
+        let camera = { x: 0, y: 0 };
+        let levelData = null;
+        let particles = [];
+        let deathMessages = [
+            "TROLLED!", "GET REKT!", "LOL!", "NOOB!", "TRY AGAIN!",
+            "SURPRISE!", "NOT TODAY!", "HAHA!", "FAKE FLOOR!", "TRAP!",
+            "EXPECTED!", "SKILL ISSUE!", "LMAO!", "GG!"
+        ];
+
+        const keys = {};
+
+        // Level definitions with troll elements
+        const LEVELS = [
+            // Level 1 - Introduction to traps
+            {
+                width: 50,
+                spawn: { x: 2, y: 10 },
+                goal: { x: 47, y: 10 },
+                platforms: [
+                    // Ground
+                    { x: 0, y: 14, w: 15, h: 1, type: 'ground' },
+                    { x: 18, y: 14, w: 8, h: 1, type: 'ground' },
+                    { x: 30, y: 14, w: 20, h: 1, type: 'ground' },
+                    // Platforms
+                    { x: 15, y: 12, w: 2, h: 1, type: 'platform' },
+                    { x: 27, y: 12, w: 2, h: 1, type: 'platform' },
+                    { x: 22, y: 10, w: 3, h: 1, type: 'platform' },
+                ],
+                traps: [
+                    // Fake floor that disappears
+                    { x: 10, y: 14, w: 2, h: 1, type: 'fake' },
+                    // Hidden spike appears when close
+                    { x: 20, y: 13, w: 1, h: 1, type: 'hidden_spike' },
+                    // Block that falls
+                    { x: 35, y: 14, w: 2, h: 1, type: 'falling' },
+                ],
+                spikes: [
+                    { x: 8, y: 13, w: 1 },
+                ]
+            },
+            // Level 2 - More devious
+            {
+                width: 60,
+                spawn: { x: 2, y: 10 },
+                goal: { x: 57, y: 10 },
+                platforms: [
+                    { x: 0, y: 14, w: 10, h: 1, type: 'ground' },
+                    { x: 14, y: 14, w: 5, h: 1, type: 'ground' },
+                    { x: 22, y: 12, w: 4, h: 1, type: 'platform' },
+                    { x: 30, y: 10, w: 4, h: 1, type: 'platform' },
+                    { x: 38, y: 12, w: 4, h: 1, type: 'platform' },
+                    { x: 45, y: 14, w: 15, h: 1, type: 'ground' },
+                ],
+                traps: [
+                    // Invisible block above pit
+                    { x: 16, y: 13, w: 5, h: 1, type: 'fake' },
+                    // Moving spike trap
+                    { x: 26, y: 11, w: 1, h: 1, type: 'hidden_spike' },
+                    // Fake goal area
+                    { x: 50, y: 14, w: 3, h: 1, type: 'fake' },
+                    // Spikes appear from ground
+                    { x: 32, y: 9, w: 2, h: 1, type: 'spike_up' },
+                    { x: 42, y: 11, w: 2, h: 1, type: 'spike_up' },
+                ],
+                spikes: [
+                    { x: 10, y: 13, w: 4 },
+                    { x: 47, y: 13, w: 2 },
+                ],
+                movingPlatforms: [
+                    { x: 10, y: 12, w: 2, h: 1, moveX: 6, speed: 0.03 }
+                ]
+            },
+            // Level 3 - Ultimate troll
+            {
+                width: 70,
+                spawn: { x: 2, y: 6 },
+                goal: { x: 67, y: 12 },
+                platforms: [
+                    { x: 0, y: 8, w: 8, h: 1, type: 'ground' },
+                    { x: 12, y: 10, w: 4, h: 1, type: 'platform' },
+                    { x: 20, y: 12, w: 4, h: 1, type: 'platform' },
+                    { x: 28, y: 10, w: 4, h: 1, type: 'platform' },
+                    { x: 35, y: 8, w: 4, h: 1, type: 'platform' },
+                    { x: 42, y: 10, w: 4, h: 1, type: 'platform' },
+                    { x: 50, y: 12, w: 4, h: 1, type: 'platform' },
+                    { x: 58, y: 14, w: 12, h: 1, type: 'ground' },
+                ],
+                traps: [
+                    // Beginning trap
+                    { x: 4, y: 8, w: 2, h: 1, type: 'fake' },
+                    // Multiple hidden spikes
+                    { x: 15, y: 9, w: 1, h: 1, type: 'hidden_spike' },
+                    { x: 23, y: 11, w: 1, h: 1, type: 'hidden_spike' },
+                    { x: 31, y: 9, w: 1, h: 1, type: 'hidden_spike' },
+                    // Spike that appears above
+                    { x: 37, y: 7, w: 2, h: 1, type: 'spike_down' },
+                    // Falling blocks
+                    { x: 44, y: 10, w: 2, h: 1, type: 'falling' },
+                    { x: 52, y: 12, w: 2, h: 1, type: 'falling' },
+                    // Fake goal
+                    { x: 60, y: 14, w: 4, h: 1, type: 'fake' },
+                ],
+                spikes: [
+                    { x: 8, y: 7, w: 4 },
+                    { x: 16, y: 9, w: 3 },
+                    { x: 54, y: 13, w: 2 },
+                ],
+                movingPlatforms: [
+                    { x: 38, y: 10, w: 2, h: 1, moveY: 4, speed: 0.02 },
+                    { x: 46, y: 12, w: 2, h: 1, moveX: 4, speed: 0.04 }
+                ]
+            }
+        ];
+
+        function init() {
+            canvas = document.getElementById('gameCanvas');
+            ctx = canvas.getContext('2d');
+            canvas.width = CONFIG.CANVAS_WIDTH;
+            canvas.height = CONFIG.CANVAS_HEIGHT;
+
+            document.addEventListener('keydown', (e) => {
+                keys[e.key.toLowerCase()] = true;
+                if (['w', ' ', 'arrowup'].includes(e.key.toLowerCase())) e.preventDefault();
+            });
+            document.addEventListener('keyup', (e) => keys[e.key.toLowerCase()] = false);
+        }
+
+        function startGame() {
+            document.getElementById('startScreen').style.display = 'none';
+            currentLevel = 0;
+            deaths = 0;
+            loadLevel(currentLevel);
+            gameRunning = true;
+            requestAnimationFrame(gameLoop);
+        }
+
+        function restartGame() {
+            document.getElementById('winModal').style.display = 'none';
+            document.getElementById('levelModal').style.display = 'none';
+            currentLevel = 0;
+            deaths = 0;
+            loadLevel(currentLevel);
+            gameRunning = true;
+        }
+
+        function nextLevel() {
+            document.getElementById('levelModal').style.display = 'none';
+            currentLevel++;
+            if (currentLevel >= LEVELS.length) {
+                showWin();
+            } else {
+                loadLevel(currentLevel);
+                gameRunning = true;
+            }
+        }
+
+        function loadLevel(index) {
+            const level = JSON.parse(JSON.stringify(LEVELS[index]));
+            levelData = level;
+
+            player.x = level.spawn.x * CONFIG.TILE_SIZE;
+            player.y = level.spawn.y * CONFIG.TILE_SIZE;
+            player.vx = 0;
+            player.vy = 0;
+            player.alive = true;
+            player.onGround = false;
+
+            camera.x = 0;
+
+            // Reset trap states
+            levelData.traps.forEach(t => {
+                t.triggered = false;
+                t.fallen = false;
+                t.visible = t.type === 'falling';
+            });
+
+            // Init moving platforms
+            if (levelData.movingPlatforms) {
+                levelData.movingPlatforms.forEach(p => {
+                    p.originalX = p.x;
+                    p.originalY = p.y;
+                    p.direction = 1;
+                });
+            }
+
+            document.getElementById('currentLevel').textContent = `${currentLevel + 1}/${LEVELS.length}`;
+            document.getElementById('deathCount').textContent = deaths;
+        }
+
+        let lastTime = 0;
+        function gameLoop(timestamp) {
+            const delta = timestamp - lastTime;
+            lastTime = timestamp;
+
+            if (gameRunning) {
+                update();
+                render();
+            }
+
+            requestAnimationFrame(gameLoop);
+        }
+
+        function update() {
+            if (!player.alive) return;
+
+            // Input
+            if (keys['a'] || keys['arrowleft']) player.vx = -CONFIG.PLAYER_SPEED;
+            else if (keys['d'] || keys['arrowright']) player.vx = CONFIG.PLAYER_SPEED;
+            else player.vx = 0;
+
+            if ((keys['w'] || keys[' '] || keys['arrowup']) && player.onGround) {
+                player.vy = CONFIG.JUMP_FORCE;
+                player.onGround = false;
+            }
+
+            // Physics
+            player.vy += CONFIG.GRAVITY;
+            player.x += player.vx;
+            player.y += player.vy;
+
+            // Update moving platforms
+            if (levelData.movingPlatforms) {
+                levelData.movingPlatforms.forEach(p => {
+                    if (p.moveX) {
+                        p.x += p.speed * p.direction;
+                        if (Math.abs(p.x - p.originalX) > p.moveX) p.direction *= -1;
+                    }
+                    if (p.moveY) {
+                        p.y += p.speed * p.direction;
+                        if (Math.abs(p.y - p.originalY) > p.moveY) p.direction *= -1;
+                    }
+                });
+            }
+
+            // Collision with platforms
+            player.onGround = false;
+            checkCollisions();
+
+            // Check traps
+            checkTraps();
+
+            // Check spikes
+            checkSpikes();
+
+            // Check goal
+            checkGoal();
+
+            // Fall death
+            if (player.y > CONFIG.CANVAS_HEIGHT + 100) {
+                die("FELL!");
+            }
+
+            // Camera
+            camera.x = player.x - CONFIG.CANVAS_WIDTH / 3;
+            camera.x = Math.max(0, Math.min(levelData.width * CONFIG.TILE_SIZE - CONFIG.CANVAS_WIDTH, camera.x));
+
+            // Particles
+            particles.forEach((p, i) => {
+                p.x += p.vx;
+                p.y += p.vy;
+                p.vy += 0.2;
+                p.life--;
+                if (p.life <= 0) particles.splice(i, 1);
+            });
+        }
+
+        function checkCollisions() {
+            const allPlatforms = [...levelData.platforms];
+
+            // Add moving platforms
+            if (levelData.movingPlatforms) {
+                levelData.movingPlatforms.forEach(p => {
+                    allPlatforms.push({ x: p.x, y: p.y, w: p.w, h: p.h, type: 'platform' });
+                });
+            }
+
+            allPlatforms.forEach(plat => {
+                if (plat.type === 'fake' && plat.triggered) return;
+
+                const px = plat.x * CONFIG.TILE_SIZE;
+                const py = plat.y * CONFIG.TILE_SIZE;
+                const pw = plat.w * CONFIG.TILE_SIZE;
+                const ph = plat.h * CONFIG.TILE_SIZE;
+
+                if (player.x + player.size > px && player.x < px + pw) {
+                    // Top collision (landing)
+                    if (player.vy > 0 && player.y + player.size > py && player.y + player.size < py + ph + player.vy) {
+                        player.y = py - player.size;
+                        player.vy = 0;
+                        player.onGround = true;
+
+                        // Trigger fake floor
+                        if (plat.type === 'fake' && !plat.triggered) {
+                            setTimeout(() => plat.triggered = true, 300);
+                        }
+                    }
+                    // Bottom collision
+                    else if (player.vy < 0 && player.y < py + ph && player.y > py) {
+                        player.y = py + ph;
+                        player.vy = 0;
+                    }
+                }
+            });
+
+            // Falling blocks
+            levelData.traps.filter(t => t.type === 'falling').forEach(trap => {
+                if (trap.fallen) return;
+
+                const px = trap.x * CONFIG.TILE_SIZE;
+                const py = trap.y * CONFIG.TILE_SIZE;
+                const pw = trap.w * CONFIG.TILE_SIZE;
+                const ph = trap.h * CONFIG.TILE_SIZE;
+
+                trap.fallY = trap.fallY || py;
+                trap.fallSpeed = trap.fallSpeed || 0;
+
+                if (player.x + player.size > px && player.x < px + pw) {
+                    if (Math.abs(player.y + player.size - py) < 50) {
+                        trap.triggered = true;
+                    }
+                }
+
+                if (trap.triggered && !trap.waiting) {
+                    trap.waiting = true;
+                    setTimeout(() => {
+                        trap.falling = true;
+                    }, 500);
+                }
+
+                if (trap.falling) {
+                    trap.fallSpeed += 0.5;
+                    trap.fallY += trap.fallSpeed;
+
+                    // Check collision with player
+                    if (player.x + player.size > px && player.x < px + pw &&
+                        player.y + player.size > trap.fallY && player.y < trap.fallY + ph) {
+                        die("CRUSHED!");
+                    }
+
+                    if (trap.fallY > CONFIG.CANVAS_HEIGHT) {
+                        trap.fallen = true;
+                    }
+                }
+            });
+        }
+
+        function checkTraps() {
+            levelData.traps.forEach(trap => {
+                const px = trap.x * CONFIG.TILE_SIZE;
+                const py = trap.y * CONFIG.TILE_SIZE;
+                const pw = trap.w * CONFIG.TILE_SIZE;
+                const ph = trap.h * CONFIG.TILE_SIZE;
+
+                // Hidden spike - appears when player is close
+                if (trap.type === 'hidden_spike' && !trap.triggered) {
+                    const dist = Math.sqrt((player.x - px) ** 2 + (player.y - py) ** 2);
+                    if (dist < 80) {
+                        trap.triggered = true;
+                    }
+                }
+
+                // Spike appearing from below
+                if (trap.type === 'spike_up' && !trap.triggered) {
+                    if (player.x > px - 32 && player.x < px + pw + 32 &&
+                        player.y > py && player.y < py + ph + 64) {
+                        trap.triggered = true;
+                    }
+                }
+
+                // Spike appearing from above
+                if (trap.type === 'spike_down' && !trap.triggered) {
+                    if (player.x > px - 32 && player.x < px + pw + 32 &&
+                        player.y < py + ph && player.y > py - 64) {
+                        trap.triggered = true;
+                    }
+                }
+
+                // Check damage
+                if ((trap.type === 'hidden_spike' && trap.triggered) ||
+                    (trap.type === 'spike_up' && trap.triggered) ||
+                    (trap.type === 'spike_down' && trap.triggered)) {
+
+                    if (player.x + player.size > px && player.x < px + pw &&
+                        player.y + player.size > py && player.y < py + ph) {
+                        die("SPIKED!");
+                    }
+                }
+            });
+        }
+
+        function checkSpikes() {
+            levelData.spikes.forEach(spike => {
+                const px = spike.x * CONFIG.TILE_SIZE;
+                const py = spike.y * CONFIG.TILE_SIZE;
+                const pw = spike.w * CONFIG.TILE_SIZE;
+
+                if (player.x + player.size > px && player.x < px + pw &&
+                    player.y + player.size > py && player.y < py + CONFIG.TILE_SIZE) {
+                    die("SPIKED!");
+                }
+            });
+        }
+
+        function checkGoal() {
+            const goal = levelData.goal;
+            const gx = goal.x * CONFIG.TILE_SIZE;
+            const gy = goal.y * CONFIG.TILE_SIZE;
+
+            if (player.x + player.size > gx && player.x < gx + CONFIG.TILE_SIZE &&
+                player.y + player.size > gy && player.y < gy + CONFIG.TILE_SIZE) {
+                levelComplete();
+            }
+        }
+
+        function die(message) {
+            if (!player.alive) return;
+            player.alive = false;
+            deaths++;
+
+            // Show death message
+            const msg = document.getElementById('deathMessage');
+            msg.textContent = message || deathMessages[Math.floor(Math.random() * deathMessages.length)];
+            msg.classList.add('show');
+
+            // Create death particles
+            for (let i = 0; i < 20; i++) {
+                particles.push({
+                    x: player.x + player.size / 2,
+                    y: player.y + player.size / 2,
+                    vx: (Math.random() - 0.5) * 8,
+                    vy: (Math.random() - 0.5) * 8 - 3,
+                    size: Math.random() * 6 + 2,
+                    color: '#ff3333',
+                    life: 30 + Math.random() * 20
+                });
+            }
+
+            setTimeout(() => {
+                msg.classList.remove('show');
+                loadLevel(currentLevel);
+                document.getElementById('deathCount').textContent = deaths;
+            }, 1000);
+        }
+
+        function levelComplete() {
+            gameRunning = false;
+            if (currentLevel >= LEVELS.length - 1) {
+                showWin();
+            } else {
+                document.getElementById('levelDeaths').textContent = deaths;
+                document.getElementById('levelModal').style.display = 'flex';
+            }
+        }
+
+        function showWin() {
+            gameRunning = false;
+            document.getElementById('finalDeaths').textContent = deaths;
+            document.getElementById('winModal').style.display = 'flex';
+        }
+
+        function render() {
+            // Background
+            ctx.fillStyle = '#0a0a0f';
+            ctx.fillRect(0, 0, CONFIG.CANVAS_WIDTH, CONFIG.CANVAS_HEIGHT);
+
+            // Grid
+            ctx.strokeStyle = 'rgba(0, 245, 255, 0.05)';
+            ctx.lineWidth = 1;
+            for (let x = -camera.x % CONFIG.TILE_SIZE; x < CONFIG.CANVAS_WIDTH; x += CONFIG.TILE_SIZE) {
+                ctx.beginPath();
+                ctx.moveTo(x, 0);
+                ctx.lineTo(x, CONFIG.CANVAS_HEIGHT);
+                ctx.stroke();
+            }
+            for (let y = 0; y < CONFIG.CANVAS_HEIGHT; y += CONFIG.TILE_SIZE) {
+                ctx.beginPath();
+                ctx.moveTo(0, y);
+                ctx.lineTo(CONFIG.CANVAS_WIDTH, y);
+                ctx.stroke();
+            }
+
+            ctx.save();
+            ctx.translate(-camera.x, 0);
+
+            // Draw platforms
+            levelData.platforms.forEach(plat => {
+                if (plat.type === 'fake' && plat.triggered) return;
+
+                const px = plat.x * CONFIG.TILE_SIZE;
+                const py = plat.y * CONFIG.TILE_SIZE;
+                const pw = plat.w * CONFIG.TILE_SIZE;
+                const ph = plat.h * CONFIG.TILE_SIZE;
+
+                ctx.fillStyle = plat.type === 'fake' ? '#33ff66' : '#9b4dff';
+                ctx.fillRect(px, py, pw, ph);
+
+                // Platform detail
+                ctx.fillStyle = 'rgba(255,255,255,0.2)';
+                ctx.fillRect(px, py, pw, 4);
+                ctx.fillStyle = 'rgba(0,0,0,0.3)';
+                ctx.fillRect(px, py + ph - 4, pw, 4);
+            });
+
+            // Draw moving platforms
+            if (levelData.movingPlatforms) {
+                levelData.movingPlatforms.forEach(p => {
+                    const px = p.x * CONFIG.TILE_SIZE;
+                    const py = p.y * CONFIG.TILE_SIZE;
+                    ctx.fillStyle = '#00f5ff';
+                    ctx.shadowColor = '#00f5ff';
+                    ctx.shadowBlur = 10;
+                    ctx.fillRect(px, py, p.w * CONFIG.TILE_SIZE, p.h * CONFIG.TILE_SIZE);
+                    ctx.shadowBlur = 0;
+                });
+            }
+
+            // Draw falling blocks
+            levelData.traps.filter(t => t.type === 'falling').forEach(trap => {
+                if (trap.fallen) return;
+
+                const px = trap.x * CONFIG.TILE_SIZE;
+                const py = trap.falling ? trap.fallY : trap.y * CONFIG.TILE_SIZE;
+                const pw = trap.w * CONFIG.TILE_SIZE;
+                const ph = trap.h * CONFIG.TILE_SIZE;
+
+                ctx.fillStyle = trap.triggered ? '#ff6b35' : '#9b4dff';
+                ctx.fillRect(px, py, pw, ph);
+            });
+
+            // Draw spikes
+            levelData.spikes.forEach(spike => {
+                drawSpikes(spike.x * CONFIG.TILE_SIZE, spike.y * CONFIG.TILE_SIZE, spike.w);
+            });
+
+            // Draw trap spikes (hidden spikes that are triggered)
+            levelData.traps.forEach(trap => {
+                if ((trap.type === 'hidden_spike' || trap.type === 'spike_up' || trap.type === 'spike_down') && trap.triggered) {
+                    drawSpikes(trap.x * CONFIG.TILE_SIZE, trap.y * CONFIG.TILE_SIZE, trap.w, '#ff3333');
+                }
+            });
+
+            // Draw goal (flag)
+            const goal = levelData.goal;
+            const gx = goal.x * CONFIG.TILE_SIZE;
+            const gy = goal.y * CONFIG.TILE_SIZE;
+            ctx.fillStyle = '#33ff66';
+            ctx.fillRect(gx + 4, gy, 4, CONFIG.TILE_SIZE);
+            ctx.fillStyle = '#ff4da6';
+            ctx.beginPath();
+            ctx.moveTo(gx + 8, gy);
+            ctx.lineTo(gx + 28, gy + 10);
+            ctx.lineTo(gx + 8, gy + 20);
+            ctx.fill();
+
+            // Draw particles
+            particles.forEach(p => {
+                ctx.fillStyle = p.color;
+                ctx.globalAlpha = p.life / 50;
+                ctx.fillRect(p.x - p.size/2, p.y - p.size/2, p.size, p.size);
+            });
+            ctx.globalAlpha = 1;
+
+            // Draw player
+            if (player.alive) {
+                ctx.fillStyle = '#00f5ff';
+                ctx.shadowColor = '#00f5ff';
+                ctx.shadowBlur = 15;
+                ctx.fillRect(player.x, player.y, player.size, player.size);
+
+                // Eyes
+                ctx.fillStyle = '#ffffff';
+                ctx.fillRect(player.x + 4, player.y + 6, 4, 4);
+                ctx.fillRect(player.x + 14, player.y + 6, 4, 4);
+                ctx.fillStyle = '#000000';
+                ctx.fillRect(player.x + 6, player.y + 8, 2, 2);
+                ctx.fillRect(player.x + 16, player.y + 8, 2, 2);
+                ctx.shadowBlur = 0;
+            }
+
+            ctx.restore();
+        }
+
+        function drawSpikes(x, y, count, color = '#ff3333') {
+            ctx.fillStyle = color;
+            ctx.shadowColor = color;
+            ctx.shadowBlur = 5;
+
+            for (let i = 0; i < count; i++) {
+                const sx = x + i * CONFIG.TILE_SIZE;
+                ctx.beginPath();
+                ctx.moveTo(sx, y + CONFIG.TILE_SIZE);
+                ctx.lineTo(sx + CONFIG.TILE_SIZE / 2, y);
+                ctx.lineTo(sx + CONFIG.TILE_SIZE, y + CONFIG.TILE_SIZE);
+                ctx.fill();
+            }
+            ctx.shadowBlur = 0;
+        }
+
+        init();
+    </script>
 </body>
 </html>

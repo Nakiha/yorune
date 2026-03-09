@@ -1,0 +1,969 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>Vampire Survivors - Pixel Edition</title>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap');
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        :root {
+            --bg-dark: #0a0a0f;
+            --bg-card: #12121a;
+            --accent-purple: #9b4dff;
+            --accent-cyan: #00f5ff;
+            --accent-pink: #ff4da6;
+            --accent-red: #ff3333;
+            --accent-green: #33ff66;
+            --accent-orange: #ff6b35;
+            --text-primary: #ffffff;
+            --text-secondary: #8888aa;
+        }
+
+        body {
+            background: var(--bg-dark);
+            min-height: 100vh;
+            font-family: 'Press Start 2P', cursive;
+            color: var(--text-primary);
+            overflow: hidden;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+
+        /* Scanline Effect */
+        body::before {
+            content: '';
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: repeating-linear-gradient(
+                0deg,
+                transparent,
+                transparent 2px,
+                rgba(0, 0, 0, 0.1) 2px,
+                rgba(0, 0, 0, 0.1) 4px
+            );
+            pointer-events: none;
+            z-index: 1000;
+        }
+
+        #gameContainer {
+            position: relative;
+        }
+
+        #gameCanvas {
+            display: block;
+            image-rendering: pixelated;
+            border: 4px solid var(--accent-purple);
+            box-shadow: 0 0 30px rgba(155, 77, 255, 0.5);
+        }
+
+        /* HUD */
+        #hud {
+            position: absolute;
+            top: 10px;
+            left: 10px;
+            right: 10px;
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            pointer-events: none;
+            z-index: 10;
+        }
+
+        .hud-left, .hud-right {
+            background: rgba(10, 10, 15, 0.8);
+            padding: 10px;
+            border: 2px solid var(--accent-purple);
+        }
+
+        .stat {
+            font-size: 10px;
+            margin-bottom: 8px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .stat-label {
+            color: var(--text-secondary);
+            min-width: 60px;
+        }
+
+        .stat-value {
+            color: var(--accent-cyan);
+        }
+
+        .bar-container {
+            width: 100px;
+            height: 12px;
+            background: var(--bg-dark);
+            border: 2px solid var(--accent-purple);
+            position: relative;
+        }
+
+        .bar-fill {
+            height: 100%;
+            transition: width 0.2s;
+        }
+
+        .health-bar .bar-fill {
+            background: linear-gradient(90deg, var(--accent-red), #ff6666);
+        }
+
+        .xp-bar .bar-fill {
+            background: linear-gradient(90deg, var(--accent-cyan), #66ffff);
+        }
+
+        .bar-text {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            font-size: 6px;
+            color: white;
+            text-shadow: 1px 1px 0 black;
+        }
+
+        /* Level Up Modal */
+        #levelUpModal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.8);
+            justify-content: center;
+            align-items: center;
+            z-index: 100;
+        }
+
+        .modal-content {
+            background: var(--bg-card);
+            border: 4px solid var(--accent-cyan);
+            padding: 30px;
+            text-align: center;
+            max-width: 500px;
+            box-shadow: 0 0 40px rgba(0, 245, 255, 0.5);
+        }
+
+        .modal-title {
+            font-size: 16px;
+            color: var(--accent-cyan);
+            margin-bottom: 20px;
+            text-shadow: 0 0 10px var(--accent-cyan);
+        }
+
+        .skill-options {
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+        }
+
+        .skill-btn {
+            background: var(--bg-dark);
+            border: 3px solid var(--accent-purple);
+            color: var(--text-primary);
+            font-family: 'Press Start 2P', cursive;
+            font-size: 10px;
+            padding: 15px 20px;
+            cursor: pointer;
+            transition: all 0.2s;
+            text-align: left;
+        }
+
+        .skill-btn:hover {
+            background: var(--accent-purple);
+            transform: scale(1.02);
+            box-shadow: 0 0 20px var(--accent-purple);
+        }
+
+        .skill-name {
+            color: var(--accent-cyan);
+            margin-bottom: 5px;
+        }
+
+        .skill-desc {
+            color: var(--text-secondary);
+            font-size: 8px;
+        }
+
+        /* Game Over Modal */
+        #gameOverModal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.9);
+            justify-content: center;
+            align-items: center;
+            z-index: 100;
+        }
+
+        .game-over-content {
+            background: var(--bg-card);
+            border: 4px solid var(--accent-red);
+            padding: 40px;
+            text-align: center;
+            box-shadow: 0 0 40px rgba(255, 51, 51, 0.5);
+        }
+
+        .game-over-title {
+            font-size: 24px;
+            color: var(--accent-red);
+            margin-bottom: 30px;
+            text-shadow: 0 0 20px var(--accent-red);
+            animation: pulse 1s infinite;
+        }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
+
+        .final-stats {
+            margin-bottom: 30px;
+        }
+
+        .final-stat {
+            font-size: 12px;
+            margin: 10px 0;
+        }
+
+        .restart-btn {
+            background: linear-gradient(135deg, var(--accent-purple), var(--accent-pink));
+            color: var(--text-primary);
+            font-family: 'Press Start 2P', cursive;
+            font-size: 12px;
+            padding: 15px 30px;
+            border: none;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .restart-btn:hover {
+            transform: scale(1.1);
+            box-shadow: 0 0 30px var(--accent-purple);
+        }
+
+        /* Start Screen */
+        #startScreen {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: var(--bg-dark);
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            z-index: 200;
+        }
+
+        .start-title {
+            font-size: 24px;
+            color: var(--accent-purple);
+            text-shadow: 4px 4px 0 var(--accent-cyan), 0 0 30px var(--accent-purple);
+            margin-bottom: 10px;
+            animation: titlePulse 2s infinite;
+        }
+
+        @keyframes titlePulse {
+            0%, 100% { text-shadow: 4px 4px 0 var(--accent-cyan), 0 0 30px var(--accent-purple); }
+            50% { text-shadow: -4px -4px 0 var(--accent-cyan), 0 0 50px var(--accent-pink); }
+        }
+
+        .start-subtitle {
+            font-size: 10px;
+            color: var(--text-secondary);
+            margin-bottom: 40px;
+        }
+
+        .start-btn {
+            background: linear-gradient(135deg, var(--accent-purple), var(--accent-pink));
+            color: var(--text-primary);
+            font-family: 'Press Start 2P', cursive;
+            font-size: 14px;
+            padding: 20px 40px;
+            border: none;
+            cursor: pointer;
+            transition: all 0.2s;
+            animation: btnBounce 1s infinite;
+        }
+
+        @keyframes btnBounce {
+            0%, 100% { transform: translateY(0); }
+            50% { transform: translateY(-5px); }
+        }
+
+        .start-btn:hover {
+            box-shadow: 0 0 40px var(--accent-purple);
+        }
+
+        .controls-info {
+            margin-top: 40px;
+            font-size: 8px;
+            color: var(--text-secondary);
+            text-align: center;
+            line-height: 2;
+        }
+    </style>
+</head>
+<body>
+    <!-- Start Screen -->
+    <div id="startScreen">
+        <h1 class="start-title">VAMPIRE SURVIVORS</h1>
+        <p class="start-subtitle">- PIXEL EDITION -</p>
+        <button class="start-btn" onclick="startGame()">START GAME</button>
+        <div class="controls-info">
+            WASD / Arrow Keys - MOVE<br>
+            Auto Attack Nearby Enemies<br>
+            Collect XP Gems to Level Up
+        </div>
+    </div>
+
+    <!-- Game Container -->
+    <div id="gameContainer">
+        <canvas id="gameCanvas"></canvas>
+        <div id="hud">
+            <div class="hud-left">
+                <div class="stat">
+                    <span class="stat-label">HP</span>
+                    <div class="bar-container health-bar">
+                        <div class="bar-fill" id="healthFill"></div>
+                        <span class="bar-text" id="healthText">100/100</span>
+                    </div>
+                </div>
+                <div class="stat">
+                    <span class="stat-label">XP</span>
+                    <div class="bar-container xp-bar">
+                        <div class="bar-fill" id="xpFill"></div>
+                        <span class="bar-text" id="xpText">0/10</span>
+                    </div>
+                </div>
+                <div class="stat">
+                    <span class="stat-label">LV</span>
+                    <span class="stat-value" id="levelValue">1</span>
+                </div>
+            </div>
+            <div class="hud-right">
+                <div class="stat">
+                    <span class="stat-label">KILLS</span>
+                    <span class="stat-value" id="killCount">0</span>
+                </div>
+                <div class="stat">
+                    <span class="stat-label">TIME</span>
+                    <span class="stat-value" id="gameTime">0:00</span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Level Up Modal -->
+    <div id="levelUpModal">
+        <div class="modal-content">
+            <h2 class="modal-title">LEVEL UP!</h2>
+            <div class="skill-options" id="skillOptions"></div>
+        </div>
+    </div>
+
+    <!-- Game Over Modal -->
+    <div id="gameOverModal">
+        <div class="game-over-content">
+            <h2 class="game-over-title">GAME OVER</h2>
+            <div class="final-stats">
+                <div class="final-stat">Level: <span id="finalLevel">1</span></div>
+                <div class="final-stat">Kills: <span id="finalKills">0</span></div>
+                <div class="final-stat">Time: <span id="finalTime">0:00</span></div>
+            </div>
+            <button class="restart-btn" onclick="restartGame()">RESTART</button>
+        </div>
+    </div>
+
+    <script>
+        // Game Configuration
+        const CONFIG = {
+            CANVAS_WIDTH: 800,
+            CANVAS_HEIGHT: 600,
+            PLAYER_SIZE: 16,
+            PLAYER_SPEED: 3,
+            INITIAL_HEALTH: 100,
+            INITIAL_DAMAGE: 10,
+            INITIAL_ATTACK_SPEED: 1000,
+            INITIAL_ATTACK_RANGE: 80,
+            XP_BASE: 10,
+            XP_MULTIPLIER: 1.5
+        };
+
+        // Game State
+        let canvas, ctx;
+        let gameRunning = false;
+        let gamePaused = false;
+        let gameStartTime = 0;
+        let kills = 0;
+
+        // Player
+        let player = {
+            x: CONFIG.CANVAS_WIDTH / 2,
+            y: CONFIG.CANVAS_HEIGHT / 2,
+            size: CONFIG.PLAYER_SIZE,
+            health: CONFIG.INITIAL_HEALTH,
+            maxHealth: CONFIG.INITIAL_HEALTH,
+            damage: CONFIG.INITIAL_DAMAGE,
+            attackSpeed: CONFIG.INITIAL_ATTACK_SPEED,
+            attackRange: CONFIG.INITIAL_ATTACK_RANGE,
+            speed: CONFIG.PLAYER_SPEED,
+            xp: 0,
+            xpToNext: CONFIG.XP_BASE,
+            level: 1
+        };
+
+        // Collections
+        let enemies = [];
+        let projectiles = [];
+        let xpGems = [];
+        let particles = [];
+
+        // Input
+        const keys = {};
+
+        // Skills
+        const SKILLS = [
+            { name: 'DAMAGE UP', desc: '+20% Attack Damage', stat: 'damage', value: 0.2, type: 'multiply' },
+            { name: 'ATTACK SPEED', desc: '+15% Attack Speed', stat: 'attackSpeed', value: -0.15, type: 'multiply' },
+            { name: 'RANGE UP', desc: '+25% Attack Range', stat: 'attackRange', value: 0.25, type: 'multiply' },
+            { name: 'MAX HP', desc: '+25 Max Health', stat: 'maxHealth', value: 25, type: 'add' },
+            { name: 'SPEED UP', desc: '+10% Move Speed', stat: 'speed', value: 0.1, type: 'multiply' },
+            { name: 'HEAL', desc: 'Restore 30 HP', stat: 'health', value: 30, type: 'add', max: 'maxHealth' }
+        ];
+
+        // Enemy Types
+        const ENEMY_TYPES = {
+            bat: { size: 12, speed: 2.5, health: 15, damage: 5, color: '#9966ff', xp: 1 },
+            skeleton: { size: 14, speed: 1.5, health: 30, damage: 10, color: '#ffffff', xp: 2 },
+            zombie: { size: 16, speed: 1, health: 50, damage: 15, color: '#33ff66', xp: 3 },
+            ghost: { size: 14, speed: 2, health: 20, damage: 8, color: '#66ffff', xp: 2 },
+            demon: { size: 20, speed: 1.2, health: 80, damage: 20, color: '#ff3333', xp: 5 }
+        };
+
+        // Initialize
+        function init() {
+            canvas = document.getElementById('gameCanvas');
+            ctx = canvas.getContext('2d');
+            canvas.width = CONFIG.CANVAS_WIDTH;
+            canvas.height = CONFIG.CANVAS_HEIGHT;
+
+            document.addEventListener('keydown', (e) => keys[e.key.toLowerCase()] = true);
+            document.addEventListener('keyup', (e) => keys[e.key.toLowerCase()] = false);
+        }
+
+        function startGame() {
+            document.getElementById('startScreen').style.display = 'none';
+            resetGame();
+            gameRunning = true;
+            gameStartTime = Date.now();
+            requestAnimationFrame(gameLoop);
+            setInterval(autoAttack, player.attackSpeed);
+            setInterval(spawnEnemy, 1500);
+        }
+
+        function resetGame() {
+            player = {
+                x: CONFIG.CANVAS_WIDTH / 2,
+                y: CONFIG.CANVAS_HEIGHT / 2,
+                size: CONFIG.PLAYER_SIZE,
+                health: CONFIG.INITIAL_HEALTH,
+                maxHealth: CONFIG.INITIAL_HEALTH,
+                damage: CONFIG.INITIAL_DAMAGE,
+                attackSpeed: CONFIG.INITIAL_ATTACK_SPEED,
+                attackRange: CONFIG.INITIAL_ATTACK_RANGE,
+                speed: CONFIG.PLAYER_SPEED,
+                xp: 0,
+                xpToNext: CONFIG.XP_BASE,
+                level: 1
+            };
+            enemies = [];
+            projectiles = [];
+            xpGems = [];
+            particles = [];
+            kills = 0;
+            updateHUD();
+        }
+
+        function restartGame() {
+            document.getElementById('gameOverModal').style.display = 'none';
+            resetGame();
+            gameRunning = true;
+            gameStartTime = Date.now();
+        }
+
+        // Game Loop
+        let lastTime = 0;
+        function gameLoop(timestamp) {
+            if (!gameRunning) return;
+
+            const deltaTime = timestamp - lastTime;
+            lastTime = timestamp;
+
+            if (!gamePaused) {
+                update(deltaTime);
+                render();
+            }
+
+            requestAnimationFrame(gameLoop);
+        }
+
+        function update(deltaTime) {
+            // Player Movement
+            let dx = 0, dy = 0;
+            if (keys['w'] || keys['arrowup']) dy -= 1;
+            if (keys['s'] || keys['arrowdown']) dy += 1;
+            if (keys['a'] || keys['arrowleft']) dx -= 1;
+            if (keys['d'] || keys['arrowright']) dx += 1;
+
+            if (dx !== 0 || dy !== 0) {
+                const len = Math.sqrt(dx * dx + dy * dy);
+                dx /= len;
+                dy /= len;
+                player.x += dx * player.speed;
+                player.y += dy * player.speed;
+            }
+
+            // Keep player in bounds
+            player.x = Math.max(player.size, Math.min(CONFIG.CANVAS_WIDTH - player.size, player.x));
+            player.y = Math.max(player.size, Math.min(CONFIG.CANVAS_HEIGHT - player.size, player.y));
+
+            // Update enemies
+            enemies.forEach(enemy => {
+                const dx = player.x - enemy.x;
+                const dy = player.y - enemy.y;
+                const dist = Math.sqrt(dx * dx + dy * dy);
+                if (dist > 0) {
+                    enemy.x += (dx / dist) * enemy.speed;
+                    enemy.y += (dy / dist) * enemy.speed;
+                }
+
+                // Check collision with player
+                if (dist < player.size + enemy.size) {
+                    player.health -= enemy.damage * 0.02;
+                    if (player.health <= 0) {
+                        gameOver();
+                    }
+                }
+            });
+
+            // Update projectiles
+            projectiles.forEach((proj, i) => {
+                proj.x += proj.vx;
+                proj.y += proj.vy;
+                proj.life--;
+
+                // Check collision with enemies
+                enemies.forEach((enemy, j) => {
+                    const dist = Math.sqrt((proj.x - enemy.x) ** 2 + (proj.y - enemy.y) ** 2);
+                    if (dist < enemy.size + proj.size) {
+                        enemy.health -= player.damage;
+                        createParticles(proj.x, proj.y, '#ffff00', 3);
+                        proj.life = 0;
+
+                        if (enemy.health <= 0) {
+                            createParticles(enemy.x, enemy.y, enemy.color, 10);
+                            xpGems.push({ x: enemy.x, y: enemy.y, value: enemy.xp, size: 6 });
+                            enemies.splice(j, 1);
+                            kills++;
+                        }
+                    }
+                });
+
+                if (proj.life <= 0) {
+                    projectiles.splice(i, 1);
+                }
+            });
+
+            // Collect XP gems
+            xpGems.forEach((gem, i) => {
+                const dist = Math.sqrt((player.x - gem.x) ** 2 + (player.y - gem.y) ** 2);
+                if (dist < 60) {
+                    // Attract towards player
+                    const dx = player.x - gem.x;
+                    const dy = player.y - gem.y;
+                    gem.x += dx * 0.1;
+                    gem.y += dy * 0.1;
+                }
+                if (dist < player.size + gem.size) {
+                    player.xp += gem.value;
+                    xpGems.splice(i, 1);
+
+                    if (player.xp >= player.xpToNext) {
+                        levelUp();
+                    }
+                }
+            });
+
+            // Update particles
+            particles.forEach((p, i) => {
+                p.x += p.vx;
+                p.y += p.vy;
+                p.life--;
+                if (p.life <= 0) particles.splice(i, 1);
+            });
+
+            updateHUD();
+        }
+
+        function render() {
+            // Clear canvas
+            ctx.fillStyle = '#0a0a0f';
+            ctx.fillRect(0, 0, CONFIG.CANVAS_WIDTH, CONFIG.CANVAS_HEIGHT);
+
+            // Draw grid
+            ctx.strokeStyle = 'rgba(155, 77, 255, 0.1)';
+            ctx.lineWidth = 1;
+            for (let x = 0; x < CONFIG.CANVAS_WIDTH; x += 32) {
+                ctx.beginPath();
+                ctx.moveTo(x, 0);
+                ctx.lineTo(x, CONFIG.CANVAS_HEIGHT);
+                ctx.stroke();
+            }
+            for (let y = 0; y < CONFIG.CANVAS_HEIGHT; y += 32) {
+                ctx.beginPath();
+                ctx.moveTo(0, y);
+                ctx.lineTo(CONFIG.CANVAS_WIDTH, y);
+                ctx.stroke();
+            }
+
+            // Draw attack range indicator
+            ctx.beginPath();
+            ctx.arc(player.x, player.y, player.attackRange, 0, Math.PI * 2);
+            ctx.strokeStyle = 'rgba(155, 77, 255, 0.2)';
+            ctx.stroke();
+
+            // Draw XP gems
+            xpGems.forEach(gem => {
+                ctx.fillStyle = '#00ffff';
+                ctx.shadowColor = '#00ffff';
+                ctx.shadowBlur = 10;
+                drawDiamond(ctx, gem.x, gem.y, gem.size);
+                ctx.shadowBlur = 0;
+            });
+
+            // Draw enemies
+            enemies.forEach(enemy => {
+                ctx.fillStyle = enemy.color;
+                ctx.shadowColor = enemy.color;
+                ctx.shadowBlur = 5;
+                drawPixelEnemy(ctx, enemy.x, enemy.y, enemy.size, enemy.type);
+                ctx.shadowBlur = 0;
+
+                // Health bar
+                const barWidth = enemy.size * 2;
+                const healthPercent = enemy.health / enemy.maxHealth;
+                ctx.fillStyle = '#333';
+                ctx.fillRect(enemy.x - barWidth/2, enemy.y - enemy.size - 8, barWidth, 4);
+                ctx.fillStyle = healthPercent > 0.5 ? '#33ff66' : healthPercent > 0.25 ? '#ffff00' : '#ff3333';
+                ctx.fillRect(enemy.x - barWidth/2, enemy.y - enemy.size - 8, barWidth * healthPercent, 4);
+            });
+
+            // Draw projectiles
+            projectiles.forEach(proj => {
+                ctx.fillStyle = '#ffff00';
+                ctx.shadowColor = '#ffff00';
+                ctx.shadowBlur = 10;
+                ctx.beginPath();
+                ctx.arc(proj.x, proj.y, proj.size, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.shadowBlur = 0;
+            });
+
+            // Draw particles
+            particles.forEach(p => {
+                ctx.fillStyle = p.color;
+                ctx.globalAlpha = p.life / p.maxLife;
+                ctx.fillRect(p.x - p.size/2, p.y - p.size/2, p.size, p.size);
+                ctx.globalAlpha = 1;
+            });
+
+            // Draw player
+            ctx.fillStyle = '#9b4dff';
+            ctx.shadowColor = '#9b4dff';
+            ctx.shadowBlur = 15;
+            drawPixelPlayer(ctx, player.x, player.y, player.size);
+            ctx.shadowBlur = 0;
+        }
+
+        function drawPixelPlayer(ctx, x, y, size) {
+            const s = size / 4;
+            // Body (purple)
+            ctx.fillRect(x - s*2, y - s*2, s*4, s*4);
+            // Eyes (cyan)
+            ctx.fillStyle = '#00f5ff';
+            ctx.fillRect(x - s, y - s, s, s);
+            ctx.fillRect(x, y - s, s, s);
+            // Cape (pink)
+            ctx.fillStyle = '#ff4da6';
+            ctx.fillRect(x - s*2, y + s*2, s, s*2);
+            ctx.fillRect(x + s, y + s*2, s, s*2);
+        }
+
+        function drawPixelEnemy(ctx, x, y, size, type) {
+            const s = size / 3;
+            switch(type) {
+                case 'bat':
+                    // Body
+                    ctx.fillRect(x - s, y - s, s*2, s*2);
+                    // Wings
+                    ctx.fillRect(x - s*2, y - s/2, s, s);
+                    ctx.fillRect(x + s, y - s/2, s, s);
+                    // Eyes
+                    ctx.fillStyle = '#ff0000';
+                    ctx.fillRect(x - s/2, y - s/2, s/3, s/3);
+                    ctx.fillRect(x + s/4, y - s/2, s/3, s/3);
+                    break;
+                case 'skeleton':
+                    // Skull
+                    ctx.fillRect(x - s, y - s*1.5, s*2, s*1.5);
+                    // Body
+                    ctx.fillRect(x - s/2, y, s, s*2);
+                    // Eyes
+                    ctx.fillStyle = '#000';
+                    ctx.fillRect(x - s/2, y - s, s/3, s/3);
+                    ctx.fillRect(x + s/4, y - s, s/3, s/3);
+                    break;
+                case 'zombie':
+                    // Body
+                    ctx.fillRect(x - s, y - s, s*2, s*3);
+                    // Arms
+                    ctx.fillRect(x - s*1.5, y, s/2, s*2);
+                    ctx.fillRect(x + s, y, s/2, s*2);
+                    // Eyes
+                    ctx.fillStyle = '#ff0000';
+                    ctx.fillRect(x - s/2, y - s/2, s/3, s/3);
+                    ctx.fillRect(x + s/4, y - s/2, s/3, s/3);
+                    break;
+                case 'ghost':
+                    // Body (semi-transparent)
+                    ctx.globalAlpha = 0.7;
+                    ctx.fillRect(x - s, y - s*1.5, s*2, s*3);
+                    // Wavy bottom
+                    ctx.fillRect(x - s, y + s*1.5, s/2, s/2);
+                    ctx.fillRect(x + s/2, y + s*1.5, s/2, s/2);
+                    ctx.globalAlpha = 1;
+                    // Eyes
+                    ctx.fillStyle = '#000';
+                    ctx.fillRect(x - s/2, y - s, s/3, s/2);
+                    ctx.fillRect(x + s/4, y - s, s/3, s/2);
+                    break;
+                case 'demon':
+                    // Body
+                    ctx.fillRect(x - s, y - s, s*2, s*2.5);
+                    // Horns
+                    ctx.fillRect(x - s*1.5, y - s*1.5, s/2, s);
+                    ctx.fillRect(x + s, y - s*1.5, s/2, s);
+                    // Eyes
+                    ctx.fillStyle = '#ffff00';
+                    ctx.fillRect(x - s/2, y - s/2, s/2, s/2);
+                    ctx.fillRect(x + s/4, y - s/2, s/2, s/2);
+                    break;
+            }
+        }
+
+        function drawDiamond(ctx, x, y, size) {
+            ctx.beginPath();
+            ctx.moveTo(x, y - size);
+            ctx.lineTo(x + size, y);
+            ctx.lineTo(x, y + size);
+            ctx.lineTo(x - size, y);
+            ctx.closePath();
+            ctx.fill();
+        }
+
+        function spawnEnemy() {
+            if (!gameRunning || gamePaused) return;
+
+            // Increase difficulty over time
+            const elapsed = (Date.now() - gameStartTime) / 1000;
+            const difficultyMod = Math.min(3, 1 + elapsed / 60);
+
+            // Choose enemy type based on time
+            let type;
+            const roll = Math.random();
+            if (elapsed > 120 && roll < 0.1) type = 'demon';
+            else if (elapsed > 60 && roll < 0.25) type = 'ghost';
+            else if (roll < 0.4) type = 'zombie';
+            else if (roll < 0.7) type = 'skeleton';
+            else type = 'bat';
+
+            const enemyDef = ENEMY_TYPES[type];
+
+            // Spawn from edge
+            const side = Math.floor(Math.random() * 4);
+            let x, y;
+            switch(side) {
+                case 0: x = Math.random() * CONFIG.CANVAS_WIDTH; y = -20; break;
+                case 1: x = CONFIG.CANVAS_WIDTH + 20; y = Math.random() * CONFIG.CANVAS_HEIGHT; break;
+                case 2: x = Math.random() * CONFIG.CANVAS_WIDTH; y = CONFIG.CANVAS_HEIGHT + 20; break;
+                case 3: x = -20; y = Math.random() * CONFIG.CANVAS_HEIGHT; break;
+            }
+
+            enemies.push({
+                x, y,
+                type,
+                size: enemyDef.size,
+                speed: enemyDef.speed * difficultyMod,
+                health: enemyDef.health * difficultyMod,
+                maxHealth: enemyDef.health * difficultyMod,
+                damage: enemyDef.damage * difficultyMod,
+                color: enemyDef.color,
+                xp: enemyDef.xp
+            });
+        }
+
+        function autoAttack() {
+            if (!gameRunning || gamePaused) return;
+
+            // Find nearest enemy in range
+            let nearestEnemy = null;
+            let nearestDist = Infinity;
+
+            enemies.forEach(enemy => {
+                const dist = Math.sqrt((player.x - enemy.x) ** 2 + (player.y - enemy.y) ** 2);
+                if (dist < player.attackRange && dist < nearestDist) {
+                    nearestDist = dist;
+                    nearestEnemy = enemy;
+                }
+            });
+
+            if (nearestEnemy) {
+                const angle = Math.atan2(nearestEnemy.y - player.y, nearestEnemy.x - player.x);
+                projectiles.push({
+                    x: player.x,
+                    y: player.y,
+                    vx: Math.cos(angle) * 8,
+                    vy: Math.sin(angle) * 8,
+                    size: 4,
+                    life: 60
+                });
+            }
+        }
+
+        function createParticles(x, y, color, count) {
+            for (let i = 0; i < count; i++) {
+                particles.push({
+                    x, y,
+                    vx: (Math.random() - 0.5) * 4,
+                    vy: (Math.random() - 0.5) * 4,
+                    size: Math.random() * 4 + 2,
+                    color,
+                    life: 20 + Math.random() * 20,
+                    maxLife: 40
+                });
+            }
+        }
+
+        function levelUp() {
+            gamePaused = true;
+            player.xp -= player.xpToNext;
+            player.level++;
+            player.xpToNext = Math.floor(CONFIG.XP_BASE * Math.pow(CONFIG.XP_MULTIPLIER, player.level - 1));
+
+            // Show skill selection
+            const modal = document.getElementById('levelUpModal');
+            const options = document.getElementById('skillOptions');
+            options.innerHTML = '';
+
+            // Pick 3 random skills
+            const shuffled = [...SKILLS].sort(() => Math.random() - 0.5);
+            const selected = shuffled.slice(0, 3);
+
+            selected.forEach(skill => {
+                const btn = document.createElement('button');
+                btn.className = 'skill-btn';
+                btn.innerHTML = `
+                    <div class="skill-name">${skill.name}</div>
+                    <div class="skill-desc">${skill.desc}</div>
+                `;
+                btn.onclick = () => applySkill(skill);
+                options.appendChild(btn);
+            });
+
+            modal.style.display = 'flex';
+        }
+
+        function applySkill(skill) {
+            if (skill.type === 'multiply') {
+                player[skill.stat] *= (1 + skill.value);
+            } else {
+                if (skill.max) {
+                    player[skill.stat] = Math.min(player[skill.max], player[skill.stat] + skill.value);
+                } else {
+                    player[skill.stat] += skill.value;
+                }
+            }
+
+            document.getElementById('levelUpModal').style.display = 'none';
+            gamePaused = false;
+
+            // Update attack interval if attack speed changed
+            if (skill.stat === 'attackSpeed') {
+                clearInterval(autoAttackInterval);
+                autoAttackInterval = setInterval(autoAttack, player.attackSpeed);
+            }
+        }
+
+        let autoAttackInterval;
+
+        function gameOver() {
+            gameRunning = false;
+            const elapsed = Math.floor((Date.now() - gameStartTime) / 1000);
+            const minutes = Math.floor(elapsed / 60);
+            const seconds = elapsed % 60;
+
+            document.getElementById('finalLevel').textContent = player.level;
+            document.getElementById('finalKills').textContent = kills;
+            document.getElementById('finalTime').textContent = `${minutes}:${seconds.toString().padStart(2, '0')}`;
+            document.getElementById('gameOverModal').style.display = 'flex';
+        }
+
+        function updateHUD() {
+            // Health
+            const healthPercent = (player.health / player.maxHealth) * 100;
+            document.getElementById('healthFill').style.width = healthPercent + '%';
+            document.getElementById('healthText').textContent = `${Math.floor(player.health)}/${player.maxHealth}`;
+
+            // XP
+            const xpPercent = (player.xp / player.xpToNext) * 100;
+            document.getElementById('xpFill').style.width = xpPercent + '%';
+            document.getElementById('xpText').textContent = `${player.xp}/${player.xpToNext}`;
+
+            // Level
+            document.getElementById('levelValue').textContent = player.level;
+
+            // Kills
+            document.getElementById('killCount').textContent = kills;
+
+            // Time
+            const elapsed = Math.floor((Date.now() - gameStartTime) / 1000);
+            const minutes = Math.floor(elapsed / 60);
+            const seconds = elapsed % 60;
+            document.getElementById('gameTime').textContent = `${minutes}:${seconds.toString().padStart(2, '0')}`;
+        }
+
+        // Initialize game
+        init();
+        autoAttackInterval = setInterval(autoAttack, player.attackSpeed);
+    </script>
+</body>
+</html>
