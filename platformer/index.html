@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-    <title>Meme Platformer - Troll Edition</title>
+    <title>Meme Platformer - Emoji Troll Edition</title>
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap');
 
@@ -120,6 +120,11 @@
             box-shadow: 0 0 40px rgba(155, 77, 255, 0.5);
         }
 
+        .modal-emoji {
+            font-size: 48px;
+            margin-bottom: 20px;
+        }
+
         .modal-title {
             font-size: 20px;
             margin-bottom: 20px;
@@ -192,6 +197,11 @@
             text-align: center;
         }
 
+        .splash-emoji {
+            font-size: 64px;
+            margin-bottom: 20px;
+        }
+
         .splash-title {
             font-size: 28px;
             color: var(--accent-cyan);
@@ -260,6 +270,11 @@
             justify-content: center;
             align-items: center;
             z-index: 200;
+        }
+
+        .start-emoji {
+            font-size: 64px;
+            margin-bottom: 20px;
         }
 
         .start-title {
@@ -375,7 +390,7 @@
             top: 50%;
             left: 50%;
             transform: translate(-50%, -50%);
-            font-size: 16px;
+            font-size: 24px;
             color: var(--accent-red);
             text-shadow: 0 0 20px var(--accent-red);
             pointer-events: none;
@@ -394,27 +409,44 @@
             50% { transform: translate(-50%, -50%) scale(1.2); }
             100% { transform: translate(-50%, -50%) scale(1); }
         }
+
+        /* Meme Death Text floating effect */
+        .meme-text {
+            position: absolute;
+            font-family: 'Press Start 2P', cursive;
+            pointer-events: none;
+            z-index: 60;
+            animation: memeFloat 1.5s ease-out forwards;
+        }
+
+        @keyframes memeFloat {
+            0% { transform: scale(0.5) translateY(0); opacity: 1; }
+            50% { transform: scale(1.5) translateY(-20px); opacity: 1; }
+            100% { transform: scale(1) translateY(-50px); opacity: 0; }
+        }
     </style>
 </head>
 <body>
     <!-- Click to Start Splash Screen -->
     <div id="clickSplash">
         <div class="splash-content">
+            <div class="splash-emoji">😐</div>
             <h1 class="splash-title">MEME PLATFORMER</h1>
-            <p class="splash-subtitle">- TROLL EDITION -</p>
+            <p class="splash-subtitle">- EMOJI TROLL EDITION -</p>
             <button class="splash-btn" id="splashStartBtn">CLICK TO START</button>
             <div class="splash-hint">Click anywhere to begin</div>
         </div>
     </div>
 
     <div id="startScreen">
+        <div class="start-emoji">😐➡️😱➡️💀</div>
         <h1 class="start-title">MEME PLATFORMER</h1>
-        <p class="start-subtitle">- TROLL EDITION -</p>
+        <p class="start-subtitle">- EMOJI TROLL EDITION -</p>
         <button class="start-btn" onclick="startGame()">START GAME</button>
         <div class="controls-info">
             A/D or Arrow Keys - MOVE<br>
             W/Space/Up - JUMP<br>
-            Reach the Flag to Complete Level
+            Reach the 🏁 Flag to Complete Level
         </div>
         <p class="warning-text">WARNING: Nothing is what it seems...</p>
     </div>
@@ -423,12 +455,16 @@
         <canvas id="gameCanvas"></canvas>
         <div id="hud">
             <div class="hud-item death-count">
-                <span class="hud-label">DEATHS:</span>
+                <span class="hud-label">💀 DEATHS:</span>
                 <span class="hud-value" id="deathCount">0</span>
             </div>
             <div class="hud-item">
-                <span class="hud-label">LEVEL:</span>
+                <span class="hud-label">📍 LEVEL:</span>
                 <span class="hud-value" id="currentLevel">1/3</span>
+            </div>
+            <div class="hud-item">
+                <span class="hud-label">💎 STARS:</span>
+                <span class="hud-value" id="starCount">0</span>
             </div>
         </div>
         <div id="deathMessage"></div>
@@ -440,20 +476,23 @@
 
     <div id="winModal" class="modal">
         <div class="modal-content">
+            <div class="modal-emoji">🏆</div>
             <h2 class="modal-title win">VICTORY!</h2>
             <div class="modal-stats">
                 <p class="modal-stat">Total Deaths: <span id="finalDeaths">0</span></p>
-                <p class="modal-stat">You are a true meme warrior!</p>
+                <p class="modal-stat">Stars Collected: <span id="finalStars">0</span></p>
+                <p class="modal-stat">You are a true meme warrior! 😎</p>
             </div>
-            <button class="modal-btn" onclick="restartGame()">PLAY AGAIN</button>
+            <button class="modal-btn" onclick="restartGame()">🔄 PLAY AGAIN</button>
         </div>
     </div>
 
     <div id="levelModal" class="modal">
         <div class="modal-content">
+            <div class="modal-emoji">🏁</div>
             <h2 class="modal-title" style="color: var(--accent-green);">LEVEL COMPLETE!</h2>
             <p style="color: var(--text-secondary); font-size: 10px; margin: 20px 0;">Deaths so far: <span id="levelDeaths">0</span></p>
-            <button class="modal-btn" onclick="nextLevel()">NEXT LEVEL</button>
+            <button class="modal-btn" onclick="nextLevel()">➡️ NEXT LEVEL</button>
         </div>
     </div>
 
@@ -490,7 +529,6 @@
                 this.initialized = true;
             }
 
-            // Jump sound - bouncy
             playJump() {
                 if (!this.initialized || this.muted) return;
                 const osc = this.ctx.createOscillator();
@@ -507,7 +545,6 @@
                 osc.stop(this.ctx.currentTime + 0.12);
             }
 
-            // Land sound - soft thud
             playLand() {
                 if (!this.initialized || this.muted) return;
                 const osc = this.ctx.createOscillator();
@@ -522,7 +559,6 @@
                 osc.stop(this.ctx.currentTime + 0.08);
             }
 
-            // Death sound - funny descending failure
             playDeath() {
                 if (!this.initialized || this.muted) return;
                 const notes = [523, 392, 330, 196, 131];
@@ -540,7 +576,6 @@
                     osc.stop(start + 0.12);
                 });
 
-                // Add descending noise burst
                 const noise = this.ctx.createOscillator();
                 const noiseEnv = this.ctx.createGain();
                 noise.type = 'sawtooth';
@@ -554,7 +589,6 @@
                 noise.stop(this.ctx.currentTime + 0.6);
             }
 
-            // Collect item sound - cheerful
             playCollect() {
                 if (!this.initialized || this.muted) return;
                 const osc = this.ctx.createOscillator();
@@ -571,7 +605,6 @@
                 osc.stop(this.ctx.currentTime + 0.12);
             }
 
-            // Victory sound - ascending fanfare
             playVictory() {
                 if (!this.initialized || this.muted) return;
                 const notes = [262, 330, 392, 523, 659, 784, 1047];
@@ -590,7 +623,6 @@
                 });
             }
 
-            // Hidden spike trigger sound - quick spring/boing
             playSpikeAppear() {
                 if (!this.initialized || this.muted) return;
                 const osc = this.ctx.createOscillator();
@@ -607,7 +639,6 @@
                 osc.stop(this.ctx.currentTime + 0.1);
             }
 
-            // Spike mechanism trigger sound - mechanical click
             playMechanism() {
                 if (!this.initialized || this.muted) return;
                 const osc = this.ctx.createOscillator();
@@ -624,10 +655,8 @@
                 osc.stop(this.ctx.currentTime + 0.15);
             }
 
-            // Fake floor disappear sound - shatter/crumble
             playShatter() {
                 if (!this.initialized || this.muted) return;
-                // Create noise-like shatter effect
                 for (let i = 0; i < 5; i++) {
                     const osc = this.ctx.createOscillator();
                     const env = this.ctx.createGain();
@@ -643,7 +672,6 @@
                 }
             }
 
-            // Falling block crack sound - crack/snap
             playCrack() {
                 if (!this.initialized || this.muted) return;
                 const osc = this.ctx.createOscillator();
@@ -657,7 +685,6 @@
                 env.gain.exponentialRampToValueAtTime(0.01, this.ctx.currentTime + 0.2);
                 osc.start();
                 osc.stop(this.ctx.currentTime + 0.2);
-                // Add a second snap
                 const osc2 = this.ctx.createOscillator();
                 const env2 = this.ctx.createGain();
                 osc2.type = 'square';
@@ -670,7 +697,6 @@
                 osc2.stop(this.ctx.currentTime + 0.15);
             }
 
-            // BGM - light adventure theme
             playBGM() {
                 if (!this.initialized || this.muted || this.bgmPlaying) return;
                 this.bgmPlaying = true;
@@ -680,7 +706,6 @@
             playBGMLoop() {
                 if (!this.bgmPlaying || this.muted) return;
 
-                // Adventure theme - light, bouncy
                 const bassLine = [
                     { note: 131, dur: 0.2 }, { note: 165, dur: 0.2 }, { note: 196, dur: 0.2 }, { note: 165, dur: 0.2 },
                     { note: 147, dur: 0.2 }, { note: 185, dur: 0.2 }, { note: 220, dur: 0.2 }, { note: 185, dur: 0.2 },
@@ -693,16 +718,8 @@
                     { note: 587, dur: 0.15 }, { note: 659, dur: 0.15 }, { note: 784, dur: 0.2 }, { note: 0, dur: 0.1 },
                 ];
 
-                const harmony = [
-                    { note: 262, dur: 0.4 }, { note: 0, dur: 0.1 },
-                    { note: 294, dur: 0.4 }, { note: 0, dur: 0.1 },
-                    { note: 330, dur: 0.4 }, { note: 0, dur: 0.1 },
-                    { note: 349, dur: 0.4 }, { note: 0, dur: 0.1 },
-                ];
-
                 let time = this.ctx.currentTime;
 
-                // Play bass
                 bassLine.forEach(n => {
                     if (n.note > 0) {
                         const osc = this.ctx.createOscillator();
@@ -720,7 +737,6 @@
                 });
 
                 time = this.ctx.currentTime;
-                // Play melody
                 melody.forEach(n => {
                     if (n.note > 0) {
                         const osc = this.ctx.createOscillator();
@@ -737,25 +753,6 @@
                     time += n.dur;
                 });
 
-                time = this.ctx.currentTime;
-                // Play harmony (soft pad)
-                harmony.forEach(n => {
-                    if (n.note > 0) {
-                        const osc = this.ctx.createOscillator();
-                        const env = this.ctx.createGain();
-                        osc.type = 'triangle';
-                        osc.frequency.value = n.note;
-                        osc.connect(env);
-                        env.connect(this.bgmGain);
-                        env.gain.setValueAtTime(0.05, time);
-                        env.gain.exponentialRampToValueAtTime(0.01, time + n.dur * 0.9);
-                        osc.start(time);
-                        osc.stop(time + n.dur);
-                    }
-                    time += n.dur;
-                });
-
-                // Schedule next loop
                 const loopDuration = 3.2;
                 this.bgmLoopTimeout = setTimeout(() => this.playBGMLoop(), loopDuration * 1000);
             }
@@ -775,7 +772,6 @@
                 }
             }
 
-            // Click sound - satisfying pop
             playClick() {
                 if (!this.initialized || this.muted) return;
                 const osc = this.ctx.createOscillator();
@@ -803,7 +799,6 @@
                 }
                 return this.muted;
             }
-
         }
 
         const audio = new AudioSystem();
@@ -815,13 +810,14 @@
             GRAVITY: 0.6,
             JUMP_FORCE: -12,
             PLAYER_SPEED: 4,
-            PLAYER_SIZE: 24
+            PLAYER_SIZE: 28
         };
 
         let canvas, ctx;
         let gameRunning = false;
         let currentLevel = 0;
         let deaths = 0;
+        let starsCollected = 0;
 
         let player = {
             x: 50,
@@ -830,50 +826,44 @@
             vy: 0,
             size: CONFIG.PLAYER_SIZE,
             onGround: false,
-            alive: true
+            alive: true,
+            state: 'normal' // normal, scared, dead
         };
 
         let camera = { x: 0, y: 0 };
         let levelData = null;
         let particles = [];
-        let deathMessages = [
-            "TROLLED!", "GET REKT!", "LOL!", "NOOB!", "TRY AGAIN!",
-            "SURPRISE!", "NOT TODAY!", "HAHA!", "FAKE FLOOR!", "TRAP!",
-            "EXPECTED!", "SKILL ISSUE!", "LMAO!", "GG!"
-        ];
+        let memeTexts = [];
+
+        // Meme death messages
+        const deathMessages = ['F', 'BRUH', 'SKILL ISSUE', 'L', 'GG', 'LMAO', 'RIP', 'NOOB', 'OOF', 'YEET', 'GET REKT', 'EXPECTED'];
 
         const keys = {};
 
-        // Level definitions with troll elements
+        // Level definitions
         const LEVELS = [
-            // Level 1 - Introduction to traps
+            // Level 1
             {
                 width: 50,
                 spawn: { x: 2, y: 10 },
                 goal: { x: 47, y: 10 },
                 platforms: [
-                    // Ground
                     { x: 0, y: 14, w: 15, h: 1, type: 'ground' },
                     { x: 18, y: 14, w: 8, h: 1, type: 'ground' },
                     { x: 30, y: 14, w: 20, h: 1, type: 'ground' },
-                    // Platforms
                     { x: 15, y: 12, w: 2, h: 1, type: 'platform' },
                     { x: 27, y: 12, w: 2, h: 1, type: 'platform' },
                     { x: 22, y: 10, w: 3, h: 1, type: 'platform' },
                 ],
                 traps: [
-                    // Fake floor that disappears
                     { x: 10, y: 14, w: 2, h: 1, type: 'fake' },
-                    // Hidden spike appears when close
                     { x: 20, y: 13, w: 1, h: 1, type: 'hidden_spike' },
-                    // Block that falls
                     { x: 35, y: 14, w: 2, h: 1, type: 'falling' },
                 ],
-                spikes: [
-                    { x: 8, y: 13, w: 1 },
-                ]
+                spikes: [{ x: 8, y: 13, w: 1 }],
+                stars: [{ x: 16, y: 11 }, { x: 24, y: 9 }, { x: 40, y: 13 }]
             },
-            // Level 2 - More devious
+            // Level 2
             {
                 width: 60,
                 spawn: { x: 2, y: 10 },
@@ -887,13 +877,9 @@
                     { x: 45, y: 14, w: 15, h: 1, type: 'ground' },
                 ],
                 traps: [
-                    // Invisible block above pit
                     { x: 16, y: 13, w: 5, h: 1, type: 'fake' },
-                    // Moving spike trap
                     { x: 26, y: 11, w: 1, h: 1, type: 'hidden_spike' },
-                    // Fake goal area
                     { x: 50, y: 14, w: 3, h: 1, type: 'fake' },
-                    // Spikes appear from ground
                     { x: 32, y: 9, w: 2, h: 1, type: 'spike_up' },
                     { x: 42, y: 11, w: 2, h: 1, type: 'spike_up' },
                 ],
@@ -903,9 +889,10 @@
                 ],
                 movingPlatforms: [
                     { x: 10, y: 12, w: 2, h: 1, moveX: 6, speed: 0.03 }
-                ]
+                ],
+                stars: [{ x: 8, y: 13 }, { x: 24, y: 11 }, { x: 32, y: 9 }, { x: 52, y: 13 }]
             },
-            // Level 3 - Ultimate troll
+            // Level 3
             {
                 width: 70,
                 spawn: { x: 2, y: 6 },
@@ -921,18 +908,13 @@
                     { x: 58, y: 14, w: 12, h: 1, type: 'ground' },
                 ],
                 traps: [
-                    // Beginning trap
                     { x: 4, y: 8, w: 2, h: 1, type: 'fake' },
-                    // Multiple hidden spikes
                     { x: 15, y: 9, w: 1, h: 1, type: 'hidden_spike' },
                     { x: 23, y: 11, w: 1, h: 1, type: 'hidden_spike' },
                     { x: 31, y: 9, w: 1, h: 1, type: 'hidden_spike' },
-                    // Spike that appears above
                     { x: 37, y: 7, w: 2, h: 1, type: 'spike_down' },
-                    // Falling blocks
                     { x: 44, y: 10, w: 2, h: 1, type: 'falling' },
                     { x: 52, y: 12, w: 2, h: 1, type: 'falling' },
-                    // Fake goal
                     { x: 60, y: 14, w: 4, h: 1, type: 'fake' },
                 ],
                 spikes: [
@@ -943,7 +925,8 @@
                 movingPlatforms: [
                     { x: 38, y: 10, w: 2, h: 1, moveY: 4, speed: 0.02 },
                     { x: 46, y: 12, w: 2, h: 1, moveX: 4, speed: 0.04 }
-                ]
+                ],
+                stars: [{ x: 6, y: 7 }, { x: 14, y: 9 }, { x: 22, y: 11 }, { x: 37, y: 7 }, { x: 46, y: 11 }, { x: 55, y: 13 }]
             }
         ];
 
@@ -965,28 +948,25 @@
             audio.playClick();
             currentLevel = 0;
             deaths = 0;
+            starsCollected = 0;
             loadLevel(currentLevel);
             gameRunning = true;
             requestAnimationFrame(gameLoop);
         }
 
-        // Splash screen - click to start and init audio
         function hideSplashAndInit() {
             const splash = document.getElementById('clickSplash');
             splash.classList.add('hidden');
-            // Initialize audio after user interaction (required by browsers)
             audio.init();
             audio.playBGM();
         }
 
-        // Listen for click on splash screen
         document.getElementById('clickSplash').addEventListener('click', hideSplashAndInit);
         document.getElementById('splashStartBtn').addEventListener('click', (e) => {
             e.stopPropagation();
             hideSplashAndInit();
         });
 
-        // Also allow keyboard to start
         document.addEventListener('keydown', (e) => {
             const splash = document.getElementById('clickSplash');
             if (!splash.classList.contains('hidden')) {
@@ -999,6 +979,7 @@
             document.getElementById('levelModal').style.display = 'none';
             currentLevel = 0;
             deaths = 0;
+            starsCollected = 0;
             loadLevel(currentLevel);
             gameRunning = true;
         }
@@ -1024,6 +1005,7 @@
             player.vy = 0;
             player.alive = true;
             player.onGround = false;
+            player.state = 'normal';
 
             camera.x = 0;
 
@@ -1043,8 +1025,13 @@
                 });
             }
 
+            // Init stars
+            if (!levelData.stars) levelData.stars = [];
+            levelData.stars.forEach(s => s.collected = false);
+
             document.getElementById('currentLevel').textContent = `${currentLevel + 1}/${LEVELS.length}`;
             document.getElementById('deathCount').textContent = deaths;
+            document.getElementById('starCount').textContent = starsCollected;
         }
 
         let lastTime = 0;
@@ -1079,6 +1066,9 @@
             player.x += player.vx;
             player.y += player.vy;
 
+            // Update player state based on situation
+            updatePlayerState();
+
             // Update moving platforms
             if (levelData.movingPlatforms) {
                 levelData.movingPlatforms.forEach(p => {
@@ -1103,6 +1093,9 @@
             // Check spikes
             checkSpikes();
 
+            // Check stars
+            checkStars();
+
             // Check goal
             checkGoal();
 
@@ -1123,12 +1116,61 @@
                 p.life--;
                 if (p.life <= 0) particles.splice(i, 1);
             });
+
+            // Meme texts
+            memeTexts.forEach((m, i) => {
+                m.life--;
+                m.y -= 1;
+                if (m.life <= 0) memeTexts.splice(i, 1);
+            });
+        }
+
+        function updatePlayerState() {
+            // Check if near danger
+            let nearDanger = false;
+            const dangerCheckDist = 50;
+
+            // Check spikes
+            levelData.spikes.forEach(spike => {
+                const px = spike.x * CONFIG.TILE_SIZE;
+                const py = spike.y * CONFIG.TILE_SIZE;
+                if (Math.abs(player.x - px) < dangerCheckDist && Math.abs(player.y - py) < dangerCheckDist) {
+                    nearDanger = true;
+                }
+            });
+
+            // Check triggered traps
+            levelData.traps.forEach(trap => {
+                if (trap.triggered && (trap.type === 'hidden_spike' || trap.type === 'spike_up' || trap.type === 'spike_down')) {
+                    const px = trap.x * CONFIG.TILE_SIZE;
+                    const py = trap.y * CONFIG.TILE_SIZE;
+                    if (Math.abs(player.x - px) < dangerCheckDist && Math.abs(player.y - py) < dangerCheckDist) {
+                        nearDanger = true;
+                    }
+                }
+            });
+
+            // Update state
+            if (!player.alive) {
+                player.state = 'dead';
+            } else if (nearDanger) {
+                player.state = 'scared';
+            } else {
+                player.state = 'normal';
+            }
+        }
+
+        function getPlayerEmoji() {
+            switch (player.state) {
+                case 'scared': return '😱';
+                case 'dead': return '💀';
+                default: return '😐';
+            }
         }
 
         function checkCollisions() {
             const allPlatforms = [...levelData.platforms];
 
-            // Add moving platforms
             if (levelData.movingPlatforms) {
                 levelData.movingPlatforms.forEach(p => {
                     allPlatforms.push({ x: p.x, y: p.y, w: p.w, h: p.h, type: 'platform' });
@@ -1144,13 +1186,11 @@
                 const ph = plat.h * CONFIG.TILE_SIZE;
 
                 if (player.x + player.size > px && player.x < px + pw) {
-                    // Top collision (landing)
                     if (player.vy > 0 && player.y + player.size > py && player.y + player.size < py + ph + player.vy) {
                         player.y = py - player.size;
                         player.vy = 0;
                         player.onGround = true;
 
-                        // Trigger fake floor
                         if (plat.type === 'fake' && !plat.triggered) {
                             setTimeout(() => {
                                 plat.triggered = true;
@@ -1158,7 +1198,6 @@
                             }, 300);
                         }
                     }
-                    // Bottom collision
                     else if (player.vy < 0 && player.y < py + ph && player.y > py) {
                         player.y = py + ph;
                         player.vy = 0;
@@ -1196,7 +1235,6 @@
                     trap.fallSpeed += 0.5;
                     trap.fallY += trap.fallSpeed;
 
-                    // Check collision with player
                     if (player.x + player.size > px && player.x < px + pw &&
                         player.y + player.size > trap.fallY && player.y < trap.fallY + ph) {
                         die("CRUSHED!");
@@ -1216,16 +1254,15 @@
                 const pw = trap.w * CONFIG.TILE_SIZE;
                 const ph = trap.h * CONFIG.TILE_SIZE;
 
-                // Hidden spike - appears when player is close
                 if (trap.type === 'hidden_spike' && !trap.triggered) {
                     const dist = Math.sqrt((player.x - px) ** 2 + (player.y - py) ** 2);
                     if (dist < 80) {
                         trap.triggered = true;
                         audio.playSpikeAppear();
+                        player.state = 'scared';
                     }
                 }
 
-                // Spike appearing from below
                 if (trap.type === 'spike_up' && !trap.triggered) {
                     if (player.x > px - 32 && player.x < px + pw + 32 &&
                         player.y > py && player.y < py + ph + 64) {
@@ -1234,7 +1271,6 @@
                     }
                 }
 
-                // Spike appearing from above
                 if (trap.type === 'spike_down' && !trap.triggered) {
                     if (player.x > px - 32 && player.x < px + pw + 32 &&
                         player.y < py + ph && player.y > py - 64) {
@@ -1243,7 +1279,6 @@
                     }
                 }
 
-                // Check damage
                 if ((trap.type === 'hidden_spike' && trap.triggered) ||
                     (trap.type === 'spike_up' && trap.triggered) ||
                     (trap.type === 'spike_down' && trap.triggered)) {
@@ -1269,6 +1304,34 @@
             });
         }
 
+        function checkStars() {
+            levelData.stars.forEach(star => {
+                if (star.collected) return;
+                const sx = star.x * CONFIG.TILE_SIZE + CONFIG.TILE_SIZE / 2;
+                const sy = star.y * CONFIG.TILE_SIZE + CONFIG.TILE_SIZE / 2;
+
+                const dist = Math.sqrt((player.x + player.size / 2 - sx) ** 2 + (player.y + player.size / 2 - sy) ** 2);
+                if (dist < player.size) {
+                    star.collected = true;
+                    starsCollected++;
+                    audio.playCollect();
+                    document.getElementById('starCount').textContent = starsCollected;
+
+                    // Create sparkle effect
+                    for (let i = 0; i < 8; i++) {
+                        particles.push({
+                            x: sx, y: sy,
+                            vx: (Math.random() - 0.5) * 6,
+                            vy: (Math.random() - 0.5) * 6,
+                            size: Math.random() * 4 + 2,
+                            color: '#ffcc00',
+                            life: 30
+                        });
+                    }
+                }
+            });
+        }
+
         function checkGoal() {
             const goal = levelData.goal;
             const gx = goal.x * CONFIG.TILE_SIZE;
@@ -1283,12 +1346,17 @@
         function die(message) {
             if (!player.alive) return;
             player.alive = false;
+            player.state = 'dead';
             deaths++;
 
             // Show death message
             const msg = document.getElementById('deathMessage');
-            msg.textContent = message || deathMessages[Math.floor(Math.random() * deathMessages.length)];
+            const meme = deathMessages[Math.floor(Math.random() * deathMessages.length)];
+            msg.textContent = meme;
             msg.classList.add('show');
+
+            // Create meme text effect
+            createMemeText(player.x + player.size / 2, player.y, meme);
 
             // Create death particles
             for (let i = 0; i < 20; i++) {
@@ -1303,6 +1371,8 @@
                 });
             }
 
+            audio.playDeath();
+
             setTimeout(() => {
                 msg.classList.remove('show');
                 loadLevel(currentLevel);
@@ -1310,8 +1380,19 @@
             }, 1000);
         }
 
+        function createMemeText(x, y, text) {
+            memeTexts.push({
+                x: x,
+                y: y,
+                text: text,
+                life: 60,
+                maxLife: 60
+            });
+        }
+
         function levelComplete() {
             gameRunning = false;
+            audio.playVictory();
             if (currentLevel >= LEVELS.length - 1) {
                 showWin();
             } else {
@@ -1323,6 +1404,7 @@
         function showWin() {
             gameRunning = false;
             document.getElementById('finalDeaths').textContent = deaths;
+            document.getElementById('finalStars').textContent = starsCollected;
             document.getElementById('winModal').style.display = 'flex';
         }
 
@@ -1362,7 +1444,6 @@
                 ctx.fillStyle = plat.type === 'fake' ? '#33ff66' : '#9b4dff';
                 ctx.fillRect(px, py, pw, ph);
 
-                // Platform detail
                 ctx.fillStyle = 'rgba(255,255,255,0.2)';
                 ctx.fillRect(px, py, pw, 4);
                 ctx.fillStyle = 'rgba(0,0,0,0.3)';
@@ -1400,25 +1481,31 @@
                 drawSpikes(spike.x * CONFIG.TILE_SIZE, spike.y * CONFIG.TILE_SIZE, spike.w);
             });
 
-            // Draw trap spikes (hidden spikes that are triggered)
+            // Draw trap spikes
             levelData.traps.forEach(trap => {
                 if ((trap.type === 'hidden_spike' || trap.type === 'spike_up' || trap.type === 'spike_down') && trap.triggered) {
                     drawSpikes(trap.x * CONFIG.TILE_SIZE, trap.y * CONFIG.TILE_SIZE, trap.w, '#ff3333');
                 }
             });
 
-            // Draw goal (flag)
+            // Draw stars (collectibles)
+            ctx.font = '24px Arial';
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            levelData.stars.forEach(star => {
+                if (!star.collected) {
+                    const sx = star.x * CONFIG.TILE_SIZE + CONFIG.TILE_SIZE / 2;
+                    const sy = star.y * CONFIG.TILE_SIZE + CONFIG.TILE_SIZE / 2;
+                    ctx.fillText('⭐', sx, sy);
+                }
+            });
+
+            // Draw goal (flag emoji)
             const goal = levelData.goal;
-            const gx = goal.x * CONFIG.TILE_SIZE;
-            const gy = goal.y * CONFIG.TILE_SIZE;
-            ctx.fillStyle = '#33ff66';
-            ctx.fillRect(gx + 4, gy, 4, CONFIG.TILE_SIZE);
-            ctx.fillStyle = '#ff4da6';
-            ctx.beginPath();
-            ctx.moveTo(gx + 8, gy);
-            ctx.lineTo(gx + 28, gy + 10);
-            ctx.lineTo(gx + 8, gy + 20);
-            ctx.fill();
+            const gx = goal.x * CONFIG.TILE_SIZE + CONFIG.TILE_SIZE / 2;
+            const gy = goal.y * CONFIG.TILE_SIZE + CONFIG.TILE_SIZE / 2;
+            ctx.font = '32px Arial';
+            ctx.fillText('🏁', gx, gy);
 
             // Draw particles
             particles.forEach(p => {
@@ -1428,22 +1515,24 @@
             });
             ctx.globalAlpha = 1;
 
-            // Draw player
+            // Draw player (emoji based on state)
             if (player.alive) {
-                ctx.fillStyle = '#00f5ff';
-                ctx.shadowColor = '#00f5ff';
-                ctx.shadowBlur = 15;
-                ctx.fillRect(player.x, player.y, player.size, player.size);
-
-                // Eyes
-                ctx.fillStyle = '#ffffff';
-                ctx.fillRect(player.x + 4, player.y + 6, 4, 4);
-                ctx.fillRect(player.x + 14, player.y + 6, 4, 4);
-                ctx.fillStyle = '#000000';
-                ctx.fillRect(player.x + 6, player.y + 8, 2, 2);
-                ctx.fillRect(player.x + 16, player.y + 8, 2, 2);
-                ctx.shadowBlur = 0;
+                ctx.font = `${player.size}px Arial`;
+                ctx.textAlign = 'center';
+                ctx.textBaseline = 'middle';
+                const emoji = getPlayerEmoji();
+                ctx.fillText(emoji, player.x + player.size / 2, player.y + player.size / 2);
             }
+
+            // Draw meme texts
+            ctx.font = '16px "Press Start 2P", cursive';
+            ctx.fillStyle = '#ff3333';
+            ctx.textAlign = 'center';
+            memeTexts.forEach(m => {
+                ctx.globalAlpha = m.life / m.maxLife;
+                ctx.fillText(m.text, m.x, m.y);
+            });
+            ctx.globalAlpha = 1;
 
             ctx.restore();
         }

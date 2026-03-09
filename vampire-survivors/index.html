@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-    <title>Vampire Survivors - Pixel Edition</title>
+    <title>Vampire Survivors - Emoji Meme Edition</title>
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap');
 
@@ -121,7 +121,7 @@
         }
 
         .xp-bar .bar-fill {
-            background: linear-gradient(90deg, var(--accent-cyan), #66ffff);
+            background: linear-gradient(90deg, #ffcc00, #ffff66);
         }
 
         .bar-text {
@@ -180,12 +180,23 @@
             cursor: pointer;
             transition: all 0.2s;
             text-align: left;
+            display: flex;
+            align-items: center;
+            gap: 15px;
         }
 
         .skill-btn:hover {
             background: var(--accent-purple);
             transform: scale(1.02);
             box-shadow: 0 0 20px var(--accent-purple);
+        }
+
+        .skill-emoji {
+            font-size: 24px;
+        }
+
+        .skill-info {
+            flex: 1;
         }
 
         .skill-name {
@@ -226,6 +237,11 @@
             margin-bottom: 30px;
             text-shadow: 0 0 20px var(--accent-red);
             animation: pulse 1s infinite;
+        }
+
+        .game-over-emoji {
+            font-size: 48px;
+            margin-bottom: 20px;
         }
 
         @keyframes pulse {
@@ -290,6 +306,11 @@
             text-shadow: 4px 4px 0 var(--accent-cyan), 0 0 30px var(--accent-purple);
             margin-bottom: 10px;
             animation: splashPulse 2s infinite;
+        }
+
+        .splash-emoji {
+            font-size: 48px;
+            margin-bottom: 20px;
         }
 
         @keyframes splashPulse {
@@ -361,6 +382,11 @@
             animation: titlePulse 2s infinite;
         }
 
+        .start-emoji {
+            font-size: 64px;
+            margin-bottom: 20px;
+        }
+
         @keyframes titlePulse {
             0%, 100% { text-shadow: 4px 4px 0 var(--accent-cyan), 0 0 30px var(--accent-purple); }
             50% { text-shadow: -4px -4px 0 var(--accent-cyan), 0 0 50px var(--accent-pink); }
@@ -399,6 +425,14 @@
             color: var(--text-secondary);
             text-align: center;
             line-height: 2;
+        }
+
+        .enemy-preview {
+            margin-top: 30px;
+            font-size: 24px;
+            display: flex;
+            gap: 15px;
+            justify-content: center;
         }
 
         /* Audio Controls */
@@ -452,14 +486,31 @@
             background: var(--accent-cyan);
             cursor: pointer;
         }
+
+        /* Meme Death Effects */
+        .meme-death {
+            position: absolute;
+            font-size: 20px;
+            font-family: 'Press Start 2P', cursive;
+            pointer-events: none;
+            z-index: 50;
+            animation: memeFloat 1s ease-out forwards;
+        }
+
+        @keyframes memeFloat {
+            0% { transform: scale(0.5); opacity: 1; }
+            50% { transform: scale(1.5); opacity: 1; }
+            100% { transform: translateY(-30px) scale(1); opacity: 0; }
+        }
     </style>
 </head>
 <body>
     <!-- Click to Start Splash Screen -->
     <div id="clickSplash">
         <div class="splash-content">
+            <div class="splash-emoji">🧛</div>
             <h1 class="splash-title">VAMPIRE SURVIVORS</h1>
-            <p class="splash-subtitle">- PIXEL EDITION -</p>
+            <p class="splash-subtitle">- EMOJI MEME EDITION -</p>
             <button class="splash-btn" id="splashStartBtn">CLICK TO START</button>
             <div class="splash-hint">Click anywhere to begin</div>
         </div>
@@ -467,13 +518,21 @@
 
     <!-- Start Screen -->
     <div id="startScreen">
+        <div class="start-emoji">🧛</div>
         <h1 class="start-title">VAMPIRE SURVIVORS</h1>
-        <p class="start-subtitle">- PIXEL EDITION -</p>
+        <p class="start-subtitle">- EMOJI MEME EDITION -</p>
         <button class="start-btn" onclick="startGame()">START GAME</button>
         <div class="controls-info">
             WASD / Arrow Keys - MOVE<br>
             Auto Attack Nearby Enemies<br>
-            Collect XP Gems to Level Up
+            Collect ⭐ Stars to Level Up
+        </div>
+        <div class="enemy-preview">
+            <span title="Bat">🦇</span>
+            <span title="Skeleton">💀</span>
+            <span title="Zombie">🧟</span>
+            <span title="Ghost">👻</span>
+            <span title="Demon Boss">😈</span>
         </div>
     </div>
 
@@ -483,14 +542,14 @@
         <div id="hud">
             <div class="hud-left">
                 <div class="stat">
-                    <span class="stat-label">HP</span>
+                    <span class="stat-label">🧛 HP</span>
                     <div class="bar-container health-bar">
                         <div class="bar-fill" id="healthFill"></div>
                         <span class="bar-text" id="healthText">100/100</span>
                     </div>
                 </div>
                 <div class="stat">
-                    <span class="stat-label">XP</span>
+                    <span class="stat-label">⭐ XP</span>
                     <div class="bar-container xp-bar">
                         <div class="bar-fill" id="xpFill"></div>
                         <span class="bar-text" id="xpText">0/10</span>
@@ -503,11 +562,11 @@
             </div>
             <div class="hud-right">
                 <div class="stat">
-                    <span class="stat-label">KILLS</span>
+                    <span class="stat-label">💀</span>
                     <span class="stat-value" id="killCount">0</span>
                 </div>
                 <div class="stat">
-                    <span class="stat-label">TIME</span>
+                    <span class="stat-label">⏱️</span>
                     <span class="stat-value" id="gameTime">0:00</span>
                 </div>
             </div>
@@ -521,7 +580,7 @@
     <!-- Level Up Modal -->
     <div id="levelUpModal">
         <div class="modal-content">
-            <h2 class="modal-title">LEVEL UP!</h2>
+            <h2 class="modal-title">⬆️ LEVEL UP! ⬆️</h2>
             <div class="skill-options" id="skillOptions"></div>
         </div>
     </div>
@@ -529,13 +588,14 @@
     <!-- Game Over Modal -->
     <div id="gameOverModal">
         <div class="game-over-content">
+            <div class="game-over-emoji">💀</div>
             <h2 class="game-over-title">GAME OVER</h2>
             <div class="final-stats">
                 <div class="final-stat">Level: <span id="finalLevel">1</span></div>
                 <div class="final-stat">Kills: <span id="finalKills">0</span></div>
                 <div class="final-stat">Time: <span id="finalTime">0:00</span></div>
             </div>
-            <button class="restart-btn" onclick="restartGame()">RESTART</button>
+            <button class="restart-btn" onclick="restartGame()">🔄 RESTART</button>
         </div>
     </div>
 
@@ -572,23 +632,7 @@
                 this.initialized = true;
             }
 
-            // Create oscillator with envelope
-            createTone(freq, duration, type = 'square', gainNode = this.sfxGain) {
-                if (!this.initialized || this.muted) return null;
-                const osc = this.ctx.createOscillator();
-                const env = this.ctx.createGain();
-                osc.type = type;
-                osc.frequency.value = freq;
-                osc.connect(env);
-                env.connect(gainNode);
-                env.gain.setValueAtTime(0.3, this.ctx.currentTime);
-                env.gain.exponentialRampToValueAtTime(0.01, this.ctx.currentTime + duration);
-                osc.start();
-                osc.stop(this.ctx.currentTime + duration);
-                return osc;
-            }
-
-            // Attack sound - short shooting burst
+            // Attack sound
             playAttack() {
                 if (!this.initialized || this.muted) return;
                 const osc = this.ctx.createOscillator();
@@ -604,7 +648,7 @@
                 osc.stop(this.ctx.currentTime + 0.1);
             }
 
-            // Enemy death - explosion
+            // Enemy death - explosion with meme sound
             playEnemyDeath() {
                 if (!this.initialized || this.muted) return;
                 const noise = this.ctx.createOscillator();
@@ -619,7 +663,6 @@
                 noise.start();
                 noise.stop(this.ctx.currentTime + 0.2);
 
-                // Add noise burst
                 const osc2 = this.ctx.createOscillator();
                 osc2.type = 'square';
                 osc2.frequency.setValueAtTime(80, this.ctx.currentTime);
@@ -628,7 +671,7 @@
                 osc2.stop(this.ctx.currentTime + 0.15);
             }
 
-            // Collect XP gem - crisp collection sound
+            // Collect star - sparkly sound
             playCollect() {
                 if (!this.initialized || this.muted) return;
                 const osc = this.ctx.createOscillator();
@@ -708,7 +751,6 @@
             playBGMLoop() {
                 if (!this.bgmPlaying || this.muted) return;
 
-                // Battle theme notes (aggressive, tense)
                 const bassLine = [
                     { note: 65, dur: 0.15 }, { note: 65, dur: 0.15 }, { note: 82, dur: 0.15 }, { note: 82, dur: 0.15 },
                     { note: 73, dur: 0.15 }, { note: 73, dur: 0.15 }, { note: 98, dur: 0.15 }, { note: 98, dur: 0.15 },
@@ -723,16 +765,8 @@
                     { note: 196, dur: 0.15 }, { note: 220, dur: 0.15 }, { note: 262, dur: 0.15 }, { note: 0, dur: 0.15 },
                 ];
 
-                const arpeggio = [
-                    { note: 131, dur: 0.075 }, { note: 165, dur: 0.075 }, { note: 196, dur: 0.075 }, { note: 262, dur: 0.075 },
-                    { note: 196, dur: 0.075 }, { note: 165, dur: 0.075 }, { note: 131, dur: 0.075 }, { note: 165, dur: 0.075 },
-                    { note: 147, dur: 0.075 }, { note: 185, dur: 0.075 }, { note: 220, dur: 0.075 }, { note: 294, dur: 0.075 },
-                    { note: 220, dur: 0.075 }, { note: 185, dur: 0.075 }, { note: 147, dur: 0.075 }, { note: 185, dur: 0.075 },
-                ];
-
                 let time = this.ctx.currentTime;
 
-                // Play bass
                 bassLine.forEach(n => {
                     if (n.note > 0) {
                         const osc = this.ctx.createOscillator();
@@ -750,7 +784,6 @@
                 });
 
                 time = this.ctx.currentTime;
-                // Play melody
                 melody.forEach(n => {
                     if (n.note > 0) {
                         const osc = this.ctx.createOscillator();
@@ -767,26 +800,7 @@
                     time += n.dur;
                 });
 
-                time = this.ctx.currentTime;
-                // Play arpeggio (lower volume)
-                arpeggio.forEach(n => {
-                    if (n.note > 0) {
-                        const osc = this.ctx.createOscillator();
-                        const env = this.ctx.createGain();
-                        osc.type = 'triangle';
-                        osc.frequency.value = n.note;
-                        osc.connect(env);
-                        env.connect(this.bgmGain);
-                        env.gain.setValueAtTime(0.06, time);
-                        env.gain.exponentialRampToValueAtTime(0.01, time + n.dur * 0.7);
-                        osc.start(time);
-                        osc.stop(time + n.dur);
-                    }
-                    time += n.dur;
-                });
-
-                // Schedule next loop
-                const loopDuration = 2.4; // Total duration of the loop
+                const loopDuration = 2.4;
                 this.bgmLoopTimeout = setTimeout(() => this.playBGMLoop(), loopDuration * 1000);
             }
 
@@ -805,7 +819,6 @@
                 }
             }
 
-            // Click sound - satisfying pop
             playClick() {
                 if (!this.initialized || this.muted) return;
                 const osc = this.ctx.createOscillator();
@@ -847,7 +860,7 @@
         const CONFIG = {
             CANVAS_WIDTH: 800,
             CANVAS_HEIGHT: 600,
-            PLAYER_SIZE: 16,
+            PLAYER_SIZE: 24,
             PLAYER_SPEED: 3,
             INITIAL_HEALTH: 100,
             INITIAL_DAMAGE: 10,
@@ -885,28 +898,32 @@
         let projectiles = [];
         let xpGems = [];
         let particles = [];
+        let memeEffects = [];
 
         // Input
         const keys = {};
 
-        // Skills
+        // Skills with emojis
         const SKILLS = [
-            { name: 'DAMAGE UP', desc: '+20% Attack Damage', stat: 'damage', value: 0.2, type: 'multiply' },
-            { name: 'ATTACK SPEED', desc: '+15% Attack Speed', stat: 'attackSpeed', value: -0.15, type: 'multiply' },
-            { name: 'RANGE UP', desc: '+25% Attack Range', stat: 'attackRange', value: 0.25, type: 'multiply' },
-            { name: 'MAX HP', desc: '+25 Max Health', stat: 'maxHealth', value: 25, type: 'add' },
-            { name: 'SPEED UP', desc: '+10% Move Speed', stat: 'speed', value: 0.1, type: 'multiply' },
-            { name: 'HEAL', desc: 'Restore 30 HP', stat: 'health', value: 30, type: 'add', max: 'maxHealth' }
+            { name: '⚔️ DAMAGE UP', emoji: '⚔️', desc: '+20% Attack Damage', stat: 'damage', value: 0.2, type: 'multiply' },
+            { name: '⚡ ATTACK SPEED', emoji: '⚡', desc: '+15% Attack Speed', stat: 'attackSpeed', value: -0.15, type: 'multiply' },
+            { name: '🎯 RANGE UP', emoji: '🎯', desc: '+25% Attack Range', stat: 'attackRange', value: 0.25, type: 'multiply' },
+            { name: '❤️ MAX HP', emoji: '❤️', desc: '+25 Max Health', stat: 'maxHealth', value: 25, type: 'add' },
+            { name: '🏃 SPEED UP', emoji: '🏃', desc: '+10% Move Speed', stat: 'speed', value: 0.1, type: 'multiply' },
+            { name: '💊 HEAL', emoji: '💊', desc: 'Restore 30 HP', stat: 'health', value: 30, type: 'add', max: 'maxHealth' }
         ];
 
-        // Enemy Types
+        // Enemy Types with Emojis
         const ENEMY_TYPES = {
-            bat: { size: 12, speed: 2.5, health: 15, damage: 5, color: '#9966ff', xp: 1 },
-            skeleton: { size: 14, speed: 1.5, health: 30, damage: 10, color: '#ffffff', xp: 2 },
-            zombie: { size: 16, speed: 1, health: 50, damage: 15, color: '#33ff66', xp: 3 },
-            ghost: { size: 14, speed: 2, health: 20, damage: 8, color: '#66ffff', xp: 2 },
-            demon: { size: 20, speed: 1.2, health: 80, damage: 20, color: '#ff3333', xp: 5 }
+            bat: { emoji: '🦇', size: 20, speed: 2.5, health: 15, damage: 5, xp: 1 },
+            skeleton: { emoji: '💀', size: 22, speed: 1.5, health: 30, damage: 10, xp: 2 },
+            zombie: { emoji: '🧟', size: 26, speed: 1, health: 50, damage: 15, xp: 3 },
+            ghost: { emoji: '👻', size: 24, speed: 2, health: 20, damage: 8, xp: 2 },
+            demon: { emoji: '😈', size: 32, speed: 1.2, health: 80, damage: 20, xp: 5 }
         };
+
+        // Meme death messages
+        const MEME_DEATHS = ['💀', '☠️', 'LOL', 'GG', 'RIP', 'F', 'LMAO', 'BRUH', 'NOOB', 'GET REKT', 'OOF', 'YEET', 'POG'];
 
         // Initialize
         function init() {
@@ -934,19 +951,16 @@
         function hideSplashAndInit() {
             const splash = document.getElementById('clickSplash');
             splash.classList.add('hidden');
-            // Initialize audio after user interaction (required by browsers)
             audio.init();
             audio.playBGM();
         }
 
-        // Listen for click on splash screen
         document.getElementById('clickSplash').addEventListener('click', hideSplashAndInit);
         document.getElementById('splashStartBtn').addEventListener('click', (e) => {
             e.stopPropagation();
             hideSplashAndInit();
         });
 
-        // Also allow keyboard to start
         document.addEventListener('keydown', (e) => {
             const splash = document.getElementById('clickSplash');
             if (!splash.classList.contains('hidden')) {
@@ -973,6 +987,7 @@
             projectiles = [];
             xpGems = [];
             particles = [];
+            memeEffects = [];
             kills = 0;
             updateHUD();
         }
@@ -1031,7 +1046,7 @@
                 }
 
                 // Check collision with player
-                if (dist < player.size + enemy.size) {
+                if (dist < player.size + enemy.size / 2) {
                     player.health -= enemy.damage * 0.02;
                     audio.playHurt();
                     if (player.health <= 0) {
@@ -1049,15 +1064,18 @@
                 // Check collision with enemies
                 enemies.forEach((enemy, j) => {
                     const dist = Math.sqrt((proj.x - enemy.x) ** 2 + (proj.y - enemy.y) ** 2);
-                    if (dist < enemy.size + proj.size) {
+                    if (dist < enemy.size / 2 + proj.size) {
                         enemy.health -= player.damage;
                         createParticles(proj.x, proj.y, '#ffff00', 3);
                         proj.life = 0;
 
                         if (enemy.health <= 0) {
                             audio.playEnemyDeath();
-                            createParticles(enemy.x, enemy.y, enemy.color, 10);
-                            xpGems.push({ x: enemy.x, y: enemy.y, value: enemy.xp, size: 6 });
+                            createParticles(enemy.x, enemy.y, enemy.color || '#ff0000', 10);
+                            // Spawn star gem
+                            xpGems.push({ x: enemy.x, y: enemy.y, value: enemy.xp, size: 16 });
+                            // Create meme death effect
+                            createMemeDeath(enemy.x, enemy.y);
                             enemies.splice(j, 1);
                             kills++;
                         }
@@ -1069,7 +1087,7 @@
                 }
             });
 
-            // Collect XP gems
+            // Collect XP gems (stars)
             xpGems.forEach((gem, i) => {
                 const dist = Math.sqrt((player.x - gem.x) ** 2 + (player.y - gem.y) ** 2);
                 if (dist < 60) {
@@ -1098,7 +1116,25 @@
                 if (p.life <= 0) particles.splice(i, 1);
             });
 
+            // Update meme effects
+            memeEffects.forEach((m, i) => {
+                m.life--;
+                m.y -= 1;
+                if (m.life <= 0) memeEffects.splice(i, 1);
+            });
+
             updateHUD();
+        }
+
+        function createMemeDeath(x, y) {
+            const meme = MEME_DEATHS[Math.floor(Math.random() * MEME_DEATHS.length)];
+            memeEffects.push({
+                x: x,
+                y: y,
+                text: meme,
+                life: 60,
+                maxLife: 60
+            });
         }
 
         function render() {
@@ -1128,25 +1164,23 @@
             ctx.strokeStyle = 'rgba(155, 77, 255, 0.2)';
             ctx.stroke();
 
-            // Draw XP gems
+            // Draw XP gems (stars)
+            ctx.font = '20px Arial';
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
             xpGems.forEach(gem => {
-                ctx.fillStyle = '#00ffff';
-                ctx.shadowColor = '#00ffff';
-                ctx.shadowBlur = 10;
-                drawDiamond(ctx, gem.x, gem.y, gem.size);
-                ctx.shadowBlur = 0;
+                ctx.fillText('⭐', gem.x, gem.y);
             });
 
-            // Draw enemies
+            // Draw enemies (emojis)
+            ctx.font = '24px Arial';
             enemies.forEach(enemy => {
-                ctx.fillStyle = enemy.color;
-                ctx.shadowColor = enemy.color;
-                ctx.shadowBlur = 5;
-                drawPixelEnemy(ctx, enemy.x, enemy.y, enemy.size, enemy.type);
-                ctx.shadowBlur = 0;
+                const size = enemy.size;
+                ctx.font = `${size}px Arial`;
+                ctx.fillText(enemy.emoji, enemy.x, enemy.y);
 
                 // Health bar
-                const barWidth = enemy.size * 2;
+                const barWidth = enemy.size * 1.5;
                 const healthPercent = enemy.health / enemy.maxHealth;
                 ctx.fillStyle = '#333';
                 ctx.fillRect(enemy.x - barWidth/2, enemy.y - enemy.size - 8, barWidth, 4);
@@ -1173,98 +1207,19 @@
                 ctx.globalAlpha = 1;
             });
 
-            // Draw player
-            ctx.fillStyle = '#9b4dff';
-            ctx.shadowColor = '#9b4dff';
-            ctx.shadowBlur = 15;
-            drawPixelPlayer(ctx, player.x, player.y, player.size);
-            ctx.shadowBlur = 0;
-        }
+            // Draw player (vampire emoji)
+            ctx.font = `${player.size * 2}px Arial`;
+            ctx.fillText('🧛', player.x, player.y);
 
-        function drawPixelPlayer(ctx, x, y, size) {
-            const s = size / 4;
-            // Body (purple)
-            ctx.fillRect(x - s*2, y - s*2, s*4, s*4);
-            // Eyes (cyan)
-            ctx.fillStyle = '#00f5ff';
-            ctx.fillRect(x - s, y - s, s, s);
-            ctx.fillRect(x, y - s, s, s);
-            // Cape (pink)
-            ctx.fillStyle = '#ff4da6';
-            ctx.fillRect(x - s*2, y + s*2, s, s*2);
-            ctx.fillRect(x + s, y + s*2, s, s*2);
-        }
-
-        function drawPixelEnemy(ctx, x, y, size, type) {
-            const s = size / 3;
-            switch(type) {
-                case 'bat':
-                    // Body
-                    ctx.fillRect(x - s, y - s, s*2, s*2);
-                    // Wings
-                    ctx.fillRect(x - s*2, y - s/2, s, s);
-                    ctx.fillRect(x + s, y - s/2, s, s);
-                    // Eyes
-                    ctx.fillStyle = '#ff0000';
-                    ctx.fillRect(x - s/2, y - s/2, s/3, s/3);
-                    ctx.fillRect(x + s/4, y - s/2, s/3, s/3);
-                    break;
-                case 'skeleton':
-                    // Skull
-                    ctx.fillRect(x - s, y - s*1.5, s*2, s*1.5);
-                    // Body
-                    ctx.fillRect(x - s/2, y, s, s*2);
-                    // Eyes
-                    ctx.fillStyle = '#000';
-                    ctx.fillRect(x - s/2, y - s, s/3, s/3);
-                    ctx.fillRect(x + s/4, y - s, s/3, s/3);
-                    break;
-                case 'zombie':
-                    // Body
-                    ctx.fillRect(x - s, y - s, s*2, s*3);
-                    // Arms
-                    ctx.fillRect(x - s*1.5, y, s/2, s*2);
-                    ctx.fillRect(x + s, y, s/2, s*2);
-                    // Eyes
-                    ctx.fillStyle = '#ff0000';
-                    ctx.fillRect(x - s/2, y - s/2, s/3, s/3);
-                    ctx.fillRect(x + s/4, y - s/2, s/3, s/3);
-                    break;
-                case 'ghost':
-                    // Body (semi-transparent)
-                    ctx.globalAlpha = 0.7;
-                    ctx.fillRect(x - s, y - s*1.5, s*2, s*3);
-                    // Wavy bottom
-                    ctx.fillRect(x - s, y + s*1.5, s/2, s/2);
-                    ctx.fillRect(x + s/2, y + s*1.5, s/2, s/2);
-                    ctx.globalAlpha = 1;
-                    // Eyes
-                    ctx.fillStyle = '#000';
-                    ctx.fillRect(x - s/2, y - s, s/3, s/2);
-                    ctx.fillRect(x + s/4, y - s, s/3, s/2);
-                    break;
-                case 'demon':
-                    // Body
-                    ctx.fillRect(x - s, y - s, s*2, s*2.5);
-                    // Horns
-                    ctx.fillRect(x - s*1.5, y - s*1.5, s/2, s);
-                    ctx.fillRect(x + s, y - s*1.5, s/2, s);
-                    // Eyes
-                    ctx.fillStyle = '#ffff00';
-                    ctx.fillRect(x - s/2, y - s/2, s/2, s/2);
-                    ctx.fillRect(x + s/4, y - s/2, s/2, s/2);
-                    break;
-            }
-        }
-
-        function drawDiamond(ctx, x, y, size) {
-            ctx.beginPath();
-            ctx.moveTo(x, y - size);
-            ctx.lineTo(x + size, y);
-            ctx.lineTo(x, y + size);
-            ctx.lineTo(x - size, y);
-            ctx.closePath();
-            ctx.fill();
+            // Draw meme death effects
+            ctx.font = '16px "Press Start 2P", cursive';
+            ctx.fillStyle = '#ff3333';
+            ctx.textAlign = 'center';
+            memeEffects.forEach(m => {
+                ctx.globalAlpha = m.life / m.maxLife;
+                ctx.fillText(m.text, m.x, m.y);
+                ctx.globalAlpha = 1;
+            });
         }
 
         function spawnEnemy() {
@@ -1298,12 +1253,12 @@
             enemies.push({
                 x, y,
                 type,
+                emoji: enemyDef.emoji,
                 size: enemyDef.size,
                 speed: enemyDef.speed * difficultyMod,
                 health: enemyDef.health * difficultyMod,
                 maxHealth: enemyDef.health * difficultyMod,
                 damage: enemyDef.damage * difficultyMod,
-                color: enemyDef.color,
                 xp: enemyDef.xp
             });
         }
@@ -1356,6 +1311,7 @@
             player.xp -= player.xpToNext;
             player.level++;
             player.xpToNext = Math.floor(CONFIG.XP_BASE * Math.pow(CONFIG.XP_MULTIPLIER, player.level - 1));
+            audio.playLevelUp();
 
             // Show skill selection
             const modal = document.getElementById('levelUpModal');
@@ -1370,8 +1326,11 @@
                 const btn = document.createElement('button');
                 btn.className = 'skill-btn';
                 btn.innerHTML = `
-                    <div class="skill-name">${skill.name}</div>
-                    <div class="skill-desc">${skill.desc}</div>
+                    <span class="skill-emoji">${skill.emoji}</span>
+                    <div class="skill-info">
+                        <div class="skill-name">${skill.name}</div>
+                        <div class="skill-desc">${skill.desc}</div>
+                    </div>
                 `;
                 btn.onclick = () => applySkill(skill);
                 options.appendChild(btn);
