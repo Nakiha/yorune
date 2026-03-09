@@ -861,9 +861,8 @@
             if ((keys['w'] || keys[' '] || keys['arrowup']) && player.onGround) {
                 player.vy = CONFIG.JUMP_FORCE;
                 player.onGround = false;
+                audio.playJump();
             }
-
-        }
 
             // Physics
             player.vy += CONFIG.GRAVITY;
@@ -939,6 +938,9 @@
                     if (player.vy > 0 && player.y + player.size > py && player.y + player.size < py + ph + player.vy) {
                         player.y = py - player.size;
                         player.vy = 0;
+                        if (!player.onGround) {
+                            audio.playLand();
+                        }
                         player.onGround = true;
 
                         // Trigger fake floor

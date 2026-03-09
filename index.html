@@ -5,6 +5,63 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
     <title>Game Selector</title>
     <link rel="stylesheet" href="css/selector.css">
+    <style>
+        .audio-controls {
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            z-index: 1000;
+        }
+
+        .audio-btn {
+            background: rgba(0, 0, 0, 0.7);
+            border: 2px solid #00f5ff;
+            color: #00f5ff;
+            font-size: 20px;
+            width: 40px;
+            height: 40px;
+            cursor: pointer;
+            font-family: 'Press Start 2P', cursive;
+            transition: all 0.2s;
+            image-rendering: pixelated;
+        }
+
+        .audio-btn:hover {
+            background: #00f5ff;
+            color: #000;
+            box-shadow: 0 0 15px #00f5ff;
+        }
+
+        .volume-slider {
+            width: 80px;
+            height: 8px;
+            -webkit-appearance: none;
+            appearance: none;
+            background: rgba(0, 0, 0, 0.7);
+            border: 2px solid #00f5ff;
+            cursor: pointer;
+        }
+
+        .volume-slider::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            appearance: none;
+            width: 16px;
+            height: 16px;
+            background: #00f5ff;
+            cursor: pointer;
+        }
+
+        .volume-slider::-moz-range-thumb {
+            width: 16px;
+            height: 16px;
+            background: #00f5ff;
+            cursor: pointer;
+            border: none;
+        }
+    </style>
 </head>
 <body>
     <!-- Background Effects -->
@@ -66,10 +123,208 @@
         <footer class="footer">
             <p class="footer-text">PRESS START TO BEGIN</p>
         </footer>
+
+        <!-- Audio Controls -->
+        <div class="audio-controls">
+            <button class="audio-btn" id="muteBtn" title="Toggle Mute">
+                <span id="muteIcon">🔊</span>
+            </button>
+            <input type="range" id="volumeSlider" min="0" max="100" value="50" class="volume-slider" title="Volume">
+        </div>
     </div>
 
     <!-- Generate Floating Pixels -->
     <script>
+        // ============ 8-bit Audio System ============
+        const audio = {
+            ctx: null,
+            initialized: false,
+            muted: false,
+            volume: 0.5,
+            bgmPlaying: false,
+            bgmLoopTimeout: null,
+
+            init() {
+                if (this.initialized) return;
+                try {
+                    this.ctx = new (window.AudioContext || window.webkitAudioContext)();
+                    this.initialized = true;
+                    this.playBGM();
+                } catch (e) {
+                    console.log('Audio not supported');
+                }
+            },
+
+            setVolume(v) {
+                this.volume = Math.max(0, Math.min(1, v));
+            },
+
+            toggleMute() {
+                this.muted = !this.muted;
+                document.getElementById('muteIcon').textContent = this.muted ? '🔇' : '🔊';
+                if (this.muted) {
+                    this.stopBGM();
+                } else if (this.initialized) {
+                    this.playBGM();
+                }
+                return this.muted;
+            },
+
+            // Hover sound - quick blip
+            playHover() {
+                if (!this.initialized || this.muted) return;
+                const osc = this.ctx.createOscillator();
+                const env = this.ctx.createGain();
+                osc.type = 'square';
+                osc.frequency.setValueAtTime(880, this.ctx.currentTime);
+                osc.frequency.setValueAtTime(1100, this.ctx.currentTime + 0.03);
+                osc.connect(env);
+                env.connect(this.ctx.destination);
+                env.gain.setValueAtTime(0.1 * this.volume, this.ctx.currentTime);
+                env.gain.exponentialRampToValueAtTime(0.01, this.ctx.currentTime + 0.05);
+                osc.start();
+                osc.stop(this.ctx.currentTime + 0.05);
+            },
+
+            // Click sound - satisfying pop
+            playClick() {
+                if (!this.initialized || this.muted) return;
+                const osc = this.ctx.createOscillator();
+                const env = this.ctx.createGain();
+                osc.type = 'square';
+                osc.frequency.setValueAtTime(600, this.ctx.currentTime);
+                osc.frequency.exponentialRampToValueAtTime(200, this.ctx.currentTime + 0.1);
+                osc.connect(env);
+                env.connect(this.ctx.destination);
+                env.gain.setValueAtTime(0.2 * this.volume, this.ctx.currentTime);
+                env.gain.exponentialRampToValueAtTime(0.01, this.ctx.currentTime + 0.1);
+                osc.start();
+                osc.stop(this.ctx.currentTime + 0.1);
+            },
+
+            // 8-bit Menu BGM - catchy chiptune melody
+            playBGM() {
+                if (!this.initialized || this.muted || this.bgmPlaying) return;
+                this.bgmPlaying = true;
+                this.playBGMLoop();
+            },
+
+            playBGMLoop() {
+                if (!this.bgmPlaying || this.muted) return;
+
+                const now = this.ctx.currentTime;
+
+                // Main melody - catchy 8-bit tune
+                const melody = [
+                    { note: 330, dur: 0.15 }, { note: 392, dur: 0.15 }, { note: 523, dur: 0.15 }, { note: 392, dur: 0.15 },
+                    { note: 330, dur: 0.15 }, { note: 294, dur: 0.15 }, { note: 330, dur: 0.15 }, { note: 392, dur: 0.15 },
+                    { note: 440, dur: 0.15 }, { note: 392, dur: 0.15 }, { note: 330, dur: 0.15 }, { note: 294, dur: 0.15 },
+                    { note: 262, dur: 0.3 }, { note: 0, dur: 0.15 },
+                    { note: 294, dur: 0.15 }, { note: 330, dur: 0.15 }, { note: 392, dur: 0.15 }, { note: 440, dur: 0.15 },
+                    { note: 523, dur: 0.15 }, { note: 440, dur: 0.15 }, { note: 392, dur: 0.15 }, { note: 330, dur: 0.15 },
+                    { note: 294, dur: 0.3 }, { note: 0, dur: 0.15 },
+                ];
+
+                // Bass line
+                const bass = [
+                    { note: 131, dur: 0.3 }, { note: 165, dur: 0.3 },
+                    { note: 175, dur: 0.3 }, { note: 165, dur: 0.3 },
+                    { note: 147, dur: 0.3 }, { note: 131, dur: 0.3 },
+                    { note: 165, dur: 0.3 }, { note: 147, dur: 0.3 },
+                ];
+
+                // Arpeggio
+                const arp = [
+                    { note: 523, dur: 0.075 }, { note: 659, dur: 0.075 }, { note: 784, dur: 0.075 }, { note: 1047, dur: 0.075 },
+                    { note: 784, dur: 0.075 }, { note: 659, dur: 0.075 }, { note: 523, dur: 0.075 }, { note: 392, dur: 0.075 },
+                    { note: 440, dur: 0.075 }, { note: 554, dur: 0.075 }, { note: 659, dur: 0.075 }, { note: 880, dur: 0.075 },
+                    { note: 659, dur: 0.075 }, { note: 554, dur: 0.075 }, { note: 440, dur: 0.075 }, { note: 330, dur: 0.075 },
+                ];
+
+                let time = now;
+
+                // Play melody
+                melody.forEach(n => {
+                    if (n.note > 0) {
+                        const osc = this.ctx.createOscillator();
+                        const env = this.ctx.createGain();
+                        osc.type = 'square';
+                        osc.frequency.value = n.note;
+                        osc.connect(env);
+                        env.connect(this.ctx.destination);
+                        env.gain.setValueAtTime(0.08 * this.volume, time);
+                        env.gain.exponentialRampToValueAtTime(0.01, time + n.dur * 0.8);
+                        osc.start(time);
+                        osc.stop(time + n.dur);
+                    }
+                    time += n.dur;
+                });
+
+                time = now;
+                // Play bass
+                bass.forEach(n => {
+                    if (n.note > 0) {
+                        const osc = this.ctx.createOscillator();
+                        const env = this.ctx.createGain();
+                        osc.type = 'triangle';
+                        osc.frequency.value = n.note;
+                        osc.connect(env);
+                        env.connect(this.ctx.destination);
+                        env.gain.setValueAtTime(0.15 * this.volume, time);
+                        env.gain.exponentialRampToValueAtTime(0.01, time + n.dur * 0.9);
+                        osc.start(time);
+                        osc.stop(time + n.dur);
+                    }
+                    time += n.dur;
+                });
+
+                time = now;
+                // Play arpeggio (softer, background)
+                arp.forEach(n => {
+                    if (n.note > 0) {
+                        const osc = this.ctx.createOscillator();
+                        const env = this.ctx.createGain();
+                        osc.type = 'square';
+                        osc.frequency.value = n.note;
+                        osc.connect(env);
+                        env.connect(this.ctx.destination);
+                        env.gain.setValueAtTime(0.03 * this.volume, time);
+                        env.gain.exponentialRampToValueAtTime(0.01, time + n.dur * 0.7);
+                        osc.start(time);
+                        osc.stop(time + n.dur);
+                    }
+                    time += n.dur;
+                });
+
+                // Schedule next loop
+                const loopDuration = 4.8;
+                this.bgmLoopTimeout = setTimeout(() => this.playBGMLoop(), loopDuration * 1000);
+            },
+
+            stopBGM() {
+                this.bgmPlaying = false;
+                if (this.bgmLoopTimeout) {
+                    clearTimeout(this.bgmLoopTimeout);
+                    this.bgmLoopTimeout = null;
+                }
+            }
+        };
+
+        // Initialize audio on first interaction
+        document.addEventListener('click', () => audio.init(), { once: true });
+        document.addEventListener('keydown', () => audio.init(), { once: true });
+
+        // Volume slider
+        document.getElementById('volumeSlider').addEventListener('input', (e) => {
+            audio.setVolume(e.target.value / 100);
+        });
+
+        // Mute button
+        document.getElementById('muteBtn').addEventListener('click', (e) => {
+            e.stopPropagation();
+            audio.toggleMute();
+        });
+
         // Create floating pixel elements
         const container = document.getElementById('pixelContainer');
         const pixelCount = 30;
@@ -86,10 +341,22 @@
         // Add click sound effect simulation
         document.querySelectorAll('.game-card').forEach(card => {
             card.addEventListener('mouseenter', () => {
+                audio.playHover();
                 card.style.transition = 'all 0.1s steps(2)';
                 setTimeout(() => {
                     card.style.transition = 'all 0.3s ease';
                 }, 100);
+            });
+            card.addEventListener('click', () => {
+                audio.playClick();
+            });
+        });
+
+        // Add sound to start buttons
+        document.querySelectorAll('.start-btn').forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                audio.playClick();
             });
         });
 
