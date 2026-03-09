@@ -57,17 +57,13 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
 
     <script id="vertexShader" type="x-shader/x-vertex">
-        varying vec2 vUv;
         void main() {
-            vUv = uv;
             gl_Position = vec4(position, 1.0);
         }
     </script>
 
     <script id="fragmentShader" type="x-shader/x-fragment">
         precision highp float;
-
-        varying vec2 vUv;
         uniform float uTime;
         uniform vec2 uResolution;
         uniform float uBrightness;
@@ -294,14 +290,40 @@
                 }
             });
 
-            // Check for shader errors
-            renderer.compile(scene, camera);
+            // Check for shader compile errors
             const gl = renderer.getContext();
-            const program = gl.getParameter(gl.CURRENT_PROGRAM);
-            if (!program) {
-                console.warn('Could not get shader program');
+            
+            // Add error callback for shader compilation
+            material.onBeforeCompile = (shader) => {
+                console.log('Shader onBeforeCompile called');
+            };
+            
+            // Force a first render to trigger shader compilation
+            renderer.render(scene, camera);
+            
+            // Check WebGL errors
+            const err = gl.getError();
+            if (err !== gl.NO_ERROR) {
+                console.error('WebGL error:', err);
+                document.getElementById('debug').innerHTML = 'WebGL Error: ' + err;
             } else {
-                console.log('Shader compiled successfully');
+                console.log('First render complete, checking shader...');
+                
+                // Try to get shader info
+                const program = gl.getParameter(gl.CURRENT_PROGRAM);
+                if (program) {
+                    const linkStatus = gl.getProgramParameter(program, gl.LINK_STATUS);
+                    console.log('Program link status:', linkStatus);
+                    if (!linkStatus) {
+                        const info = gl.getProgramInfoLog(program);
+                        console.error('Program info log:', info);
+                        document.getElementById('debug').innerHTML = 'Link Error: ' + info;
+                    } else {
+                        console.log('Shader program linked successfully!');
+                    }
+                } else {
+                    console.log('No current program (may be normal after first render)');
+                }
             }
 
             // Fullscreen quad
