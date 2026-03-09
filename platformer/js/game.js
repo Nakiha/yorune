@@ -560,45 +560,107 @@ class Game {
         if (this.screenShake > 0) this.screenShake *= 0.9;
     }
     
+    // 马里奥风格的碰撞检测 - X轴
     handleCollisionX() {
-        const tileX1 = Math.floor(this.player.x / this.TILE_SIZE);
-        const tileX2 = Math.floor((this.player.x + this.player.width) / this.TILE_SIZE);
-        const tileY1 = Math.floor(this.player.y / this.TILE_SIZE);
-        const tileY2 = Math.floor((this.player.y + this.player.height - 1) / this.TILE_SIZE);
+        const player = this.player;
+        const tileSize = this.TILE_SIZE;
         
-        for (let ty = tileY1; ty <= tileY2; ty++) {
-            for (let tx = tileX1; tx <= tileX2; tx++) {
+        // 计算玩家当前占据的瓦片范围
+        const leftTile = Math.floor(player.x / tileSize);
+        const rightTile = Math.floor((player.x + player.width - 1) / tileSize);
+        const topTile = Math.floor(player.y / tileSize);
+        const bottomTile = Math.floor((player.y + player.height - 1) / tileSize);
+        
+        // 只在移动时检测
+        if (player.vx === 0) return;
+        
+        for (let ty = topTile; ty <= bottomTile; ty++) {
+            for (let tx = leftTile; tx <= rightTile; tx++) {
                 if (this.isSolid(tx, ty)) {
-                    if (this.player.vx > 0) {
-                        this.player.x = tx * this.TILE_SIZE - this.player.width;
-                    } else if (this.player.vx < 0) {
-                        this.player.x = (tx + 1) * this.TILE_SIZE;
+                    const tileLeft = tx * tileSize;
+                    const tileRight = tileLeft + tileSize;
+                    
+                    if (player.vx > 0) {
+                        // 向右移动，检测右侧碰撞
+                        const overlap = (player.x + player.width) - tileLeft;
+                        if (overlap > 0 && overlap < tileSize) {
+                            player.x = tileLeft - player.width;
+                            player.vx = 0;
+                        }
+                    } else if (player.vx < 0) {
+                        // 向左移动，检测左侧碰撞
+                        const overlap = tileRight - player.x;
+                        if (overlap > 0 && overlap < tileSize) {
+                            player.x = tileRight;
+                            player.vx = 0;
+                        }
                     }
-                    this.player.vx = 0;
                 }
             }
         }
     }
     
+    // 马里奥风格的碰撞检测 - Y轴
     handleCollisionY() {
-        const tileX1 = Math.floor(this.player.x / this.TILE_SIZE);
-        const tileX2 = Math.floor((this.player.x + this.player.width) / this.TILE_SIZE);
-        const tileY1 = Math.floor(this.player.y / this.TILE_SIZE);
-        const tileY2 = Math.floor((this.player.y + this.player.height) / this.TILE_SIZE);
+        const player = this.player;
+        const tileSize = this.TILE_SIZE;
         
-        this.player.onGround = false;
+        // 计算玩家当前占据的瓦片范围
+        const leftTile = Math.floor(player.x / tileSize);
+        const rightTile = Math.floor((player.x + player.width - 1) / tileSize);
+        const topTile = Math.floor(player.y / tileSize);
+        const bottomTile = Math.floor((player.y + player.height - 1) / tileSize);
         
-        for (let ty = tileY1; ty <= tileY2; ty++) {
-            for (let tx = tileX1; tx <= tileX2; tx++) {
+        player.onGround = false;
+        
+        for (let ty = topTile; ty <= bottomTile; ty++) {
+            for (let tx = leftTile; tx <= rightTile; tx++) {
                 if (this.isSolid(tx, ty)) {
-                    if (this.player.vy > 0) {
-                        this.player.y = ty * this.TILE_SIZE - this.player.height;
-                        this.player.vy = 0;
-                        this.player.onGround = true;
-                        this.checkSpecialTile(tx, ty);
-                    } else if (this.player.vy < 0) {
-                        this.player.y = (ty + 1) * this.TILE_SIZE;
-                        this.player.vy = 0;
+                    const tileTop = ty * tileSize;
+                    const tileBottom = tileTop + tileSize;
+                    
+                    if (player.vy > 0) {
+                        // 下落，检测底部碰撞
+                        const overlap = (player.y + player.height) - tileTop;
+                        if (overlap > 0 && overlap < tileSize * 0.7) {
+                            player.y = tileTop - player.height;
+                            player.vy = 0;
+                            player.onGround = true;
+                            this.checkSpecialTile(tx, ty);
+                        }
+                    } else if (player.vy < 0) {
+                        // 上升，检测顶部碰撞
+                        const overlap = tileBottom - player.y;
+                        if (overlap > 0 && overlap < tileSize * 0.7) {
+                            player.y = tileBottom;
+                            player.vy = 0;
+                        }
+                    }
+                }
+            }
+        }
+        
+        // 额外的地面检测 - 从玩家脚下发射射线
+        if (!player.onGround && player.vy >= 0) {
+            const footY = player.y + player.height;
+            const checkPoints = [
+                player.x + 4,
+                player.x + player.width / 2,
+                player.x + player.width - 4
+            ];
+            
+            for (let px of checkPoints) {
+                const tileX = Math.floor(px / tileSize);
+                const tileY = Math.floor(footY / tileSize);
+                
+                if (this.isSolid(tileX, tileY)) {
+                    const tileTop = tileY * tileSize;
+                    if (footY >= tileTop && footY <= tileTop + 8) {
+                        player.y = tileTop - player.height;
+                        player.vy = 0;
+                        player.onGround = true;
+                        this.checkSpecialTile(tileX, tileY);
+                        break;
                     }
                 }
             }
