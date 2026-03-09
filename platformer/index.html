@@ -499,6 +499,86 @@
                 });
             }
 
+            // Hidden spike trigger sound - quick spring/boing
+            playSpikeAppear() {
+                if (!this.initialized || this.muted) return;
+                const osc = this.ctx.createOscillator();
+                const env = this.ctx.createGain();
+                osc.type = 'square';
+                osc.frequency.setValueAtTime(200, this.ctx.currentTime);
+                osc.frequency.exponentialRampToValueAtTime(800, this.ctx.currentTime + 0.05);
+                osc.frequency.exponentialRampToValueAtTime(400, this.ctx.currentTime + 0.1);
+                osc.connect(env);
+                env.connect(this.sfxGain);
+                env.gain.setValueAtTime(0.2, this.ctx.currentTime);
+                env.gain.exponentialRampToValueAtTime(0.01, this.ctx.currentTime + 0.1);
+                osc.start();
+                osc.stop(this.ctx.currentTime + 0.1);
+            }
+
+            // Spike mechanism trigger sound - mechanical click
+            playMechanism() {
+                if (!this.initialized || this.muted) return;
+                const osc = this.ctx.createOscillator();
+                const env = this.ctx.createGain();
+                osc.type = 'sawtooth';
+                osc.frequency.setValueAtTime(150, this.ctx.currentTime);
+                osc.frequency.setValueAtTime(180, this.ctx.currentTime + 0.03);
+                osc.frequency.exponentialRampToValueAtTime(80, this.ctx.currentTime + 0.15);
+                osc.connect(env);
+                env.connect(this.sfxGain);
+                env.gain.setValueAtTime(0.15, this.ctx.currentTime);
+                env.gain.exponentialRampToValueAtTime(0.01, this.ctx.currentTime + 0.15);
+                osc.start();
+                osc.stop(this.ctx.currentTime + 0.15);
+            }
+
+            // Fake floor disappear sound - shatter/crumble
+            playShatter() {
+                if (!this.initialized || this.muted) return;
+                // Create noise-like shatter effect
+                for (let i = 0; i < 5; i++) {
+                    const osc = this.ctx.createOscillator();
+                    const env = this.ctx.createGain();
+                    osc.type = 'square';
+                    osc.frequency.value = 100 + Math.random() * 300;
+                    osc.connect(env);
+                    env.connect(this.sfxGain);
+                    const start = this.ctx.currentTime + i * 0.02;
+                    env.gain.setValueAtTime(0.12, start);
+                    env.gain.exponentialRampToValueAtTime(0.01, start + 0.08);
+                    osc.start(start);
+                    osc.stop(start + 0.08);
+                }
+            }
+
+            // Falling block crack sound - crack/snap
+            playCrack() {
+                if (!this.initialized || this.muted) return;
+                const osc = this.ctx.createOscillator();
+                const env = this.ctx.createGain();
+                osc.type = 'sawtooth';
+                osc.frequency.setValueAtTime(300, this.ctx.currentTime);
+                osc.frequency.exponentialRampToValueAtTime(60, this.ctx.currentTime + 0.2);
+                osc.connect(env);
+                env.connect(this.sfxGain);
+                env.gain.setValueAtTime(0.25, this.ctx.currentTime);
+                env.gain.exponentialRampToValueAtTime(0.01, this.ctx.currentTime + 0.2);
+                osc.start();
+                osc.stop(this.ctx.currentTime + 0.2);
+                // Add a second snap
+                const osc2 = this.ctx.createOscillator();
+                const env2 = this.ctx.createGain();
+                osc2.type = 'square';
+                osc2.frequency.setValueAtTime(400, this.ctx.currentTime + 0.05);
+                osc2.connect(env2);
+                env2.connect(this.sfxGain);
+                env2.gain.setValueAtTime(0.15, this.ctx.currentTime + 0.05);
+                env2.gain.exponentialRampToValueAtTime(0.01, this.ctx.currentTime + 0.15);
+                osc2.start(this.ctx.currentTime + 0.05);
+                osc2.stop(this.ctx.currentTime + 0.15);
+            }
+
             // BGM - light adventure theme
             playBGM() {
                 if (!this.initialized || this.muted || this.bgmPlaying) return;
@@ -938,14 +1018,14 @@
                     if (player.vy > 0 && player.y + player.size > py && player.y + player.size < py + ph + player.vy) {
                         player.y = py - player.size;
                         player.vy = 0;
-                        if (!player.onGround) {
-                            audio.playLand();
-                        }
                         player.onGround = true;
 
                         // Trigger fake floor
                         if (plat.type === 'fake' && !plat.triggered) {
-                            setTimeout(() => plat.triggered = true, 300);
+                            setTimeout(() => {
+                                plat.triggered = true;
+                                audio.playShatter();
+                            }, 300);
                         }
                     }
                     // Bottom collision
@@ -971,6 +1051,7 @@
                 if (player.x + player.size > px && player.x < px + pw) {
                     if (Math.abs(player.y + player.size - py) < 50) {
                         trap.triggered = true;
+                        audio.playCrack();
                     }
                 }
 
@@ -1010,6 +1091,7 @@
                     const dist = Math.sqrt((player.x - px) ** 2 + (player.y - py) ** 2);
                     if (dist < 80) {
                         trap.triggered = true;
+                        audio.playSpikeAppear();
                     }
                 }
 
@@ -1018,6 +1100,7 @@
                     if (player.x > px - 32 && player.x < px + pw + 32 &&
                         player.y > py && player.y < py + ph + 64) {
                         trap.triggered = true;
+                        audio.playMechanism();
                     }
                 }
 
@@ -1026,6 +1109,7 @@
                     if (player.x > px - 32 && player.x < px + pw + 32 &&
                         player.y < py + ph && player.y > py - 64) {
                         trap.triggered = true;
+                        audio.playMechanism();
                     }
                 }
 
