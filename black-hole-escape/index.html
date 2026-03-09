@@ -24,6 +24,23 @@
             image-rendering: pixelated;
             cursor: none;
         }
+        /* CRT Scanline Effect */
+        #crtOverlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            z-index: 100;
+            background: repeating-linear-gradient(
+                0deg,
+                rgba(0, 0, 0, 0.15),
+                rgba(0, 0, 0, 0.15) 1px,
+                transparent 1px,
+                transparent 2px
+            );
+        }
         #startScreen {
             position: absolute;
             top: 0;
@@ -38,12 +55,13 @@
             z-index: 10;
         }
         #startScreen h1 {
-            font-size: 48px;
+            font-size: 42px;
             color: #0ff;
             text-shadow: 0 0 10px #0ff, 0 0 20px #0ff, 0 0 40px #f0f;
             animation: pulse 2s infinite;
             text-align: center;
             margin-bottom: 20px;
+            letter-spacing: 4px;
         }
         #startScreen .subtitle {
             font-size: 24px;
@@ -53,21 +71,28 @@
         }
         #startScreen .instructions {
             color: #fff;
-            font-size: 16px;
-            text-align: center;
-            line-height: 2;
-            margin-bottom: 40px;
+            font-size: 15px;
+            text-align: left;
+            line-height: 2.2;
             max-width: 500px;
         }
-        #startScreen .emoji {
-            font-size: 20px;
-            margin-right: 10px;
+        #startScreen .instructions .row {
+            display: flex;
+            align-items: center;
+            margin: 8px 0;
+        }
+        #startScreen .instructions .icon {
+            width: 24px;
+            height: 24px;
+            margin-right: 12px;
+            display: inline-block;
         }
         #startScreen .click-hint {
             font-size: 28px;
             color: #ff0;
             text-shadow: 0 0 10px #ff0;
             animation: blink 1s infinite;
+            margin-top: 40px;
         }
         @keyframes pulse {
             0%, 100% { transform: scale(1); }
@@ -85,27 +110,370 @@
     </style>
 </head>
 <body>
+    <div id="crtOverlay"></div>
     <div id="startScreen">
-        <h1>🕳️ BLACK HOLE ESCAPE</h1>
-        <div class="subtitle">黑洞逃亡</div>
+        <h1>BLACK HOLE ESCAPE</h1>
+        <div class="subtitle">- 黑洞逃亡 -</div>
         <div class="pixel-border">
             <div class="instructions">
-                <span class="emoji">🚀</span> 控制飞船躲避黑洞引力<br>
-                <span class="emoji">⭐</span> 收集星星获得分数<br>
-                <span class="emoji">☄️</span> 躲避陨石 - 直线移动<br>
-                <span class="emoji">👾</span> 外星人 - 追踪玩家<br>
-                <span class="emoji">🛡️</span> 护盾道具 - 免疫3秒<br>
-                <span class="emoji">⚡</span> 加速道具 - 5秒加速<br>
+                <div class="row"><canvas class="icon" id="iconShip"></canvas> 控制飞船躲避黑洞引力</div>
+                <div class="row"><canvas class="icon" id="iconStar"></canvas> 收集星星获得分数</div>
+                <div class="row"><canvas class="icon" id="iconMeteor"></canvas> 躲避陨石 - 直线移动</div>
+                <div class="row"><canvas class="icon" id="iconAlien"></canvas> 外星人UFO - 追踪玩家</div>
+                <div class="row"><canvas class="icon" id="iconShield"></canvas> 护盾道具 - 免疫3秒</div>
+                <div class="row"><canvas class="icon" id="iconSpeed"></canvas> 加速道具 - 5秒加速</div>
                 <br>
-                ⬆️⬇️⬅️➡️ 或 WASD 控制移动<br>
-                越靠近黑洞，引力越强！
+                <div style="text-align: center; color: #0ff;">
+                    [WASD] 或 [方向键] 控制移动<br>
+                    越靠近黑洞，引力越强！
+                </div>
             </div>
         </div>
-        <div class="click-hint">>>> 点击开始游戏 <<<</div>
+        <div class="click-hint">&gt;&gt;&gt; 点击开始游戏 &lt;&lt;&lt;</div>
     </div>
     <canvas id="gameCanvas"></canvas>
 
     <script>
+        // ==================== Pixel Art Drawing Functions ====================
+        const PIXEL_SIZE = 2;
+
+        function drawPixel(ctx, x, y, color, size = PIXEL_SIZE) {
+            ctx.fillStyle = color;
+            ctx.fillRect(Math.floor(x), Math.floor(y), size, size);
+        }
+
+        function drawPixelRect(ctx, x, y, w, h, color) {
+            ctx.fillStyle = color;
+            ctx.fillRect(Math.floor(x), Math.floor(y), w, h);
+        }
+
+        // Pixel Spaceship (white/cyan triangle)
+        function drawPixelShip(ctx, x, y, size, shield = false, speedBoost = false) {
+            const s = size;
+            ctx.save();
+            ctx.translate(x, y);
+
+            // Speed boost trail
+            if (speedBoost) {
+                ctx.fillStyle = 'rgba(255, 255, 0, 0.6)';
+                for (let i = 0; i < 3; i++) {
+                    const trailSize = 4 - i;
+                    ctx.fillRect(-s - 4 - i * 6, -trailSize, trailSize * 2, trailSize * 2);
+                }
+            }
+
+            // Shield effect
+            if (shield) {
+                const shieldAlpha = 0.4 + Math.sin(Date.now() / 80) * 0.2;
+                ctx.strokeStyle = `rgba(0, 255, 255, ${shieldAlpha})`;
+                ctx.lineWidth = 3;
+                ctx.beginPath();
+                ctx.arc(0, 0, s + 6, 0, Math.PI * 2);
+                ctx.stroke();
+
+                // Shield hexagon overlay
+                ctx.strokeStyle = `rgba(0, 255, 255, ${shieldAlpha + 0.2})`;
+                ctx.lineWidth = 2;
+                ctx.beginPath();
+                for (let i = 0; i < 6; i++) {
+                    const angle = (i / 6) * Math.PI * 2 - Math.PI / 2;
+                    const px = Math.cos(angle) * (s + 4);
+                    const py = Math.sin(angle) * (s + 4);
+                    if (i === 0) ctx.moveTo(px, py);
+                    else ctx.lineTo(px, py);
+                }
+                ctx.closePath();
+                ctx.stroke();
+            }
+
+            // Ship body - triangular shape
+            // Main body (cyan)
+            const shipPixels = [
+                // Nose
+                [0, -s, '#0ff'],
+                // Upper body
+                [-2, -s+4, '#0ff'], [2, -s+4, '#0ff'],
+                [-4, -s+8, '#0ff'], [0, -s+8, '#fff'], [4, -s+8, '#0ff'],
+                // Mid body
+                [-6, -s+12, '#0ff'], [-2, -s+12, '#fff'], [2, -s+12, '#fff'], [6, -s+12, '#0ff'],
+                // Lower body
+                [-8, -s+16, '#0af'], [-4, -s+16, '#0ff'], [0, -s+16, '#fff'], [4, -s+16, '#0ff'], [8, -s+16, '#0af'],
+                // Wings
+                [-10, -s+18, '#08f'], [10, -s+18, '#08f'],
+                [-10, -s+20, '#06f'], [10, -s+20, '#06f'],
+                // Engine
+                [-4, -s+20, '#f80'], [0, -s+20, '#ff0'], [4, -s+20, '#f80'],
+                [-2, -s+24, '#f40'], [2, -s+24, '#f40'],
+            ];
+
+            shipPixels.forEach(([px, py, color]) => {
+                drawPixel(ctx, px - 1, py - 1, color, 3);
+            });
+
+            // Cockpit (dark)
+            drawPixelRect(ctx, -2, -s+6, 4, 4, '#08f');
+
+            ctx.restore();
+        }
+
+        // Pixel Black Hole (purple/magenta vortex)
+        function drawPixelBlackHole(ctx, x, y, radius, rotation) {
+            // Spiral arms
+            for (let arm = 0; arm < 4; arm++) {
+                const armAngle = rotation + (arm * Math.PI / 2);
+                for (let i = 0; i < 20; i++) {
+                    const dist = radius + i * 4;
+                    const angle = armAngle + i * 0.15;
+                    const px = x + Math.cos(angle) * dist;
+                    const py = y + Math.sin(angle) * dist * 0.4;
+                    const alpha = 1 - (i / 20);
+                    const hue = 280 + i * 3;
+
+                    ctx.fillStyle = `hsla(${hue}, 100%, 60%, ${alpha * 0.6})`;
+                    const pixelSize = 6 - (i * 0.2);
+                    ctx.fillRect(px - pixelSize/2, py - pixelSize/2, pixelSize, pixelSize);
+                }
+            }
+
+            // Inner glow rings
+            for (let r = radius; r > radius - 15; r -= 3) {
+                const alpha = (radius - r) / 15;
+                ctx.strokeStyle = `rgba(200, 50, 200, ${alpha * 0.5})`;
+                ctx.lineWidth = 2;
+                ctx.beginPath();
+                ctx.arc(x, y, r, 0, Math.PI * 2);
+                ctx.stroke();
+            }
+
+            // Event horizon (black center)
+            const gradient = ctx.createRadialGradient(x, y, 0, x, y, radius);
+            gradient.addColorStop(0, '#000');
+            gradient.addColorStop(0.6, '#0a0015');
+            gradient.addColorStop(1, '#2a0a3a');
+            ctx.fillStyle = gradient;
+            ctx.beginPath();
+            ctx.arc(x, y, radius, 0, Math.PI * 2);
+            ctx.fill();
+
+            // Pixel vortex pattern in center
+            for (let ring = 0; ring < 3; ring++) {
+                const ringRadius = radius * 0.3 + ring * 6;
+                const segments = 8 + ring * 2;
+                for (let i = 0; i < segments; i++) {
+                    const angle = rotation * 2 + (i / segments) * Math.PI * 2;
+                    const px = x + Math.cos(angle) * ringRadius;
+                    const py = y + Math.sin(angle) * ringRadius;
+                    const color = ring % 2 === 0 ? '#c0f' : '#f0c';
+                    ctx.fillStyle = color;
+                    ctx.fillRect(px - 2, py - 2, 4, 4);
+                }
+            }
+
+            // Dark core
+            ctx.fillStyle = '#000';
+            ctx.beginPath();
+            ctx.arc(x, y, radius * 0.25, 0, Math.PI * 2);
+            ctx.fill();
+        }
+
+        // Pixel Star (yellow sparkle)
+        function drawPixelStar(ctx, x, y, size, pulse) {
+            const scale = 1 + Math.sin(pulse) * 0.2;
+            const s = size * scale;
+
+            // Glow
+            ctx.fillStyle = 'rgba(255, 255, 0, 0.3)';
+            ctx.fillRect(x - s, y - s, s * 2, s * 2);
+
+            // Star shape (4-pointed)
+            const starPixels = [
+                [0, -s, '#fff'],
+                [-1, -s+2, '#ff0'], [1, -s+2, '#ff0'],
+                [-s, 0, '#fff'], [0, 0, '#fff'], [s, 0, '#fff'],
+                [-1, s-2, '#ff0'], [1, s-2, '#ff0'],
+                [0, s, '#fff'],
+                [-2, -2, '#ff8'], [2, -2, '#ff8'], [-2, 2, '#ff8'], [2, 2, '#ff8'],
+            ];
+
+            starPixels.forEach(([px, py, color]) => {
+                drawPixel(ctx, x + px - 1, y + py - 1, color, 3);
+            });
+        }
+
+        // Pixel Meteor (gray/brown irregular rock)
+        function drawPixelMeteor(ctx, x, y, size, rotation) {
+            ctx.save();
+            ctx.translate(x, y);
+            ctx.rotate(rotation);
+
+            const s = size / 2;
+
+            // Irregular rock shape
+            const meteorPixels = [
+                // Main body
+                [-s, -2, '#666'], [-s+2, -4, '#777'], [-s+4, -s+2, '#888'],
+                [-s+2, 0, '#5a5a5a'], [0, -4, '#888'], [2, -s+2, '#777'],
+                [s-4, 0, '#666'], [s-2, -2, '#777'], [s-2, 2, '#5a5a5a'],
+                // Details
+                [-4, 2, '#4a4a4a'], [0, 2, '#666'], [4, -2, '#5a5a5a'],
+                [-2, 4, '#777'], [2, 4, '#666'], [0, s-2, '#5a5a5a'],
+                // Craters
+                [-s+4, -2, '#3a3a3a'], [2, 0, '#3a3a3a'], [-2, -2, '#4a4a4a'],
+                // Brown accents
+                [-s+2, 2, '#8b4513'], [s-4, 2, '#a0522d'],
+            ];
+
+            meteorPixels.forEach(([px, py, color]) => {
+                drawPixel(ctx, px - 2, py - 2, color, 4);
+            });
+
+            // Fire trail
+            const trailColors = ['#f80', '#fa0', '#ff0'];
+            for (let i = 0; i < 3; i++) {
+                ctx.fillStyle = trailColors[i];
+                ctx.fillRect(-8 - i * 4, -2 + i, 4, 4 - i);
+            }
+
+            ctx.restore();
+        }
+
+        // Pixel UFO/Alien (green)
+        function drawPixelUFO(ctx, x, y, size, wobble) {
+            const wobbleX = Math.sin(wobble) * 3;
+            const s = size / 2;
+
+            ctx.save();
+            ctx.translate(x + wobbleX, y);
+
+            // Beam (occasional)
+            if (Math.sin(wobble * 0.5) > 0.5) {
+                ctx.fillStyle = 'rgba(0, 255, 100, 0.2)';
+                ctx.beginPath();
+                ctx.moveTo(-s, 0);
+                ctx.lineTo(s, 0);
+                ctx.lineTo(s + 4, s + 10);
+                ctx.lineTo(-s - 4, s + 10);
+                ctx.closePath();
+                ctx.fill();
+            }
+
+            // UFO body
+            const ufoPixels = [
+                // Top dome
+                [0, -s-2, '#0f0'],
+                [-2, -s, '#0d0'], [2, -s, '#0d0'],
+                [-4, -s+2, '#0a0'], [0, -s+2, '#0f0'], [4, -s+2, '#0a0'],
+                // Main body
+                [-s, 0, '#0d0'], [-s+2, 0, '#0f0'], [s-2, 0, '#0f0'], [s, 0, '#0d0'],
+                [-s+4, -2, '#080'], [-4, -2, '#0a0'], [4, -2, '#0a0'], [s-4, -2, '#080'],
+                // Lights
+                [-s+2, 2, '#ff0'], [-2, 2, '#0ff'], [2, 2, '#0ff'], [s-2, 2, '#ff0'],
+                // Bottom
+                [-4, 4, '#060'], [4, 4, '#060'],
+            ];
+
+            ufoPixels.forEach(([px, py, color]) => {
+                drawPixel(ctx, px - 2, py - 2, color, 4);
+            });
+
+            // Window/cockpit
+            ctx.fillStyle = '#0ff';
+            ctx.fillRect(-2, -s, 4, 4);
+            ctx.fillStyle = '#fff';
+            ctx.fillRect(-1, -s+1, 2, 2);
+
+            ctx.restore();
+        }
+
+        // Pixel Shield Power-up (blue energy orb)
+        function drawPixelShieldPU(ctx, x, y, size, pulse) {
+            const scale = 1 + Math.sin(pulse) * 0.15;
+            const s = size * scale / 2;
+
+            // Outer glow
+            ctx.fillStyle = 'rgba(0, 200, 255, 0.3)';
+            ctx.fillRect(x - s - 4, y - s - 4, (s + 4) * 2, (s + 4) * 2);
+
+            // Shield icon (hexagon)
+            const shieldPixels = [
+                // Top
+                [0, -s, '#0ff'],
+                [-2, -s+2, '#0df'], [2, -s+2, '#0df'],
+                // Sides
+                [-s+2, -2, '#0bf'], [s-2, -2, '#0bf'],
+                [-s+2, 2, '#0bf'], [s-2, 2, '#0bf'],
+                // Bottom
+                [-2, s-2, '#0df'], [2, s-2, '#0df'],
+                [0, s, '#0ff'],
+                // Center
+                [-1, -1, '#fff'], [1, -1, '#8ff'],
+                [-1, 1, '#8ff'], [1, 1, '#fff'],
+            ];
+
+            shieldPixels.forEach(([px, py, color]) => {
+                drawPixel(ctx, x + px - 1, y + py - 1, color, 3);
+            });
+        }
+
+        // Pixel Speed Power-up (yellow lightning)
+        function drawPixelSpeedPU(ctx, x, y, size, pulse) {
+            const scale = 1 + Math.sin(pulse) * 0.15;
+            const s = size * scale / 2;
+
+            // Glow
+            ctx.fillStyle = 'rgba(255, 255, 0, 0.3)';
+            ctx.fillRect(x - s - 4, y - s - 4, (s + 4) * 2, (s + 4) * 2);
+
+            // Lightning bolt
+            const boltPixels = [
+                // Top
+                [2, -s, '#fff'],
+                [0, -s+2, '#ff0'], [2, -s+2, '#ff8'],
+                [-2, -s+4, '#ff0'], [0, -s+4, '#fff'],
+                // Middle
+                [-2, 0, '#ff0'], [0, 0, '#fff'], [2, 0, '#ff8'],
+                [-4, 2, '#ff0'], [-2, 2, '#fff'],
+                // Bottom
+                [-4, s-2, '#ff0'], [-2, s-2, '#ff8'],
+                [-2, s, '#fff'],
+            ];
+
+            boltPixels.forEach(([px, py, color]) => {
+                drawPixel(ctx, x + px - 1, y + py - 1, color, 3);
+            });
+        }
+
+        // Pixel Particle (small square)
+        function drawPixelParticle(ctx, x, y, size, color, alpha) {
+            ctx.globalAlpha = alpha;
+            ctx.fillStyle = color;
+            const s = Math.max(2, Math.floor(size));
+            ctx.fillRect(Math.floor(x) - s/2, Math.floor(y) - s/2, s, s);
+            ctx.globalAlpha = 1;
+        }
+
+        // Draw icons for start screen
+        function drawStartScreenIcons() {
+            const icons = [
+                { id: 'iconShip', draw: (c, cx, cy) => drawPixelShip(c, cx, cy, 10) },
+                { id: 'iconStar', draw: (c, cx, cy) => drawPixelStar(c, cx, cy, 8, 0) },
+                { id: 'iconMeteor', draw: (c, cx, cy) => drawPixelMeteor(c, cx, cy, 16, 0.5) },
+                { id: 'iconAlien', draw: (c, cx, cy) => drawPixelUFO(c, cx, cy, 16, 0) },
+                { id: 'iconShield', draw: (c, cx, cy) => drawPixelShieldPU(c, cx, cy, 12, 0) },
+                { id: 'iconSpeed', draw: (c, cx, cy) => drawPixelSpeedPU(c, cx, cy, 12, 0) },
+            ];
+
+            icons.forEach(icon => {
+                const canvas = document.getElementById(icon.id);
+                if (canvas) {
+                    canvas.width = 24;
+                    canvas.height = 24;
+                    const ctx = canvas.getContext('2d');
+                    icon.draw(ctx, 12, 12);
+                }
+            });
+        }
+
         // ==================== Audio System ====================
         class AudioSystem {
             constructor() {
@@ -276,13 +644,14 @@
         // Initialize background stars
         function initBgStars() {
             bgStars = [];
-            for (let i = 0; i < 100; i++) {
+            for (let i = 0; i < 80; i++) {
                 bgStars.push({
                     x: Math.random() * canvas.width,
                     y: Math.random() * canvas.height,
-                    size: Math.random() * 2 + 0.5,
+                    size: Math.random() < 0.3 ? 2 : 1,
                     brightness: Math.random(),
-                    twinkleSpeed: Math.random() * 2 + 1
+                    twinkleSpeed: Math.random() * 2 + 1,
+                    color: Math.random() < 0.1 ? '#f0f' : (Math.random() < 0.2 ? '#0ff' : '#fff')
                 });
             }
         }
@@ -294,8 +663,8 @@
             stars.push({
                 x: blackHole.x + Math.cos(angle) * dist,
                 y: blackHole.y + Math.sin(angle) * dist,
-                size: 16,
-                pulse: 0
+                size: 12,
+                pulse: Math.random() * Math.PI * 2
             });
         }
 
@@ -305,25 +674,25 @@
             const speed = 1.5 + Math.random() * 2;
 
             switch(side) {
-                case 0: // top
+                case 0:
                     x = Math.random() * canvas.width;
                     y = -20;
                     vx = (Math.random() - 0.5) * speed;
                     vy = speed;
                     break;
-                case 1: // right
+                case 1:
                     x = canvas.width + 20;
                     y = Math.random() * canvas.height;
                     vx = -speed;
                     vy = (Math.random() - 0.5) * speed;
                     break;
-                case 2: // bottom
+                case 2:
                     x = Math.random() * canvas.width;
                     y = canvas.height + 20;
                     vx = (Math.random() - 0.5) * speed;
                     vy = -speed;
                     break;
-                case 3: // left
+                case 3:
                     x = -20;
                     y = Math.random() * canvas.height;
                     vx = speed;
@@ -355,9 +724,9 @@
             powerUps.push({
                 x: blackHole.x + Math.cos(angle) * dist,
                 y: blackHole.y + Math.sin(angle) * dist,
-                size: 18,
+                size: 16,
                 type: type,
-                pulse: 0
+                pulse: Math.random() * Math.PI * 2
             });
         }
 
@@ -565,182 +934,97 @@
             ctx.fillStyle = gradient;
             ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-            // Background stars
+            // Background stars (pixel style)
             bgStars.forEach(star => {
                 const twinkle = Math.sin(Date.now() / 1000 * star.twinkleSpeed) * 0.3 + 0.7;
-                ctx.fillStyle = `rgba(255, 255, 255, ${star.brightness * twinkle})`;
-                ctx.beginPath();
-                ctx.arc(star.x, star.y, star.size, 0, Math.PI * 2);
-                ctx.fill();
+                ctx.fillStyle = star.color;
+                ctx.globalAlpha = star.brightness * twinkle;
+                ctx.fillRect(Math.floor(star.x), Math.floor(star.y), star.size, star.size);
             });
+            ctx.globalAlpha = 1;
         }
 
         function drawBlackHole() {
             blackHole.rotation += 0.02;
-
-            // Accretion disk
-            for (let i = 5; i >= 0; i--) {
-                const radius = blackHole.radius + 20 + i * 15;
-                const alpha = 0.3 - i * 0.04;
-                const hue = (280 + i * 20 + blackHole.rotation * 10) % 360;
-
-                ctx.save();
-                ctx.translate(blackHole.x, blackHole.y);
-                ctx.rotate(blackHole.rotation + i * 0.1);
-
-                ctx.strokeStyle = `hsla(${hue}, 100%, 60%, ${alpha})`;
-                ctx.lineWidth = 3;
-                ctx.beginPath();
-                ctx.ellipse(0, 0, radius, radius * 0.3, 0, 0, Math.PI * 2);
-                ctx.stroke();
-
-                ctx.restore();
-            }
-
-            // Event horizon
-            const bhGradient = ctx.createRadialGradient(
-                blackHole.x, blackHole.y, 0,
-                blackHole.x, blackHole.y, blackHole.radius
-            );
-            bhGradient.addColorStop(0, '#000');
-            bhGradient.addColorStop(0.7, '#000');
-            bhGradient.addColorStop(1, '#2a0a3a');
-            ctx.fillStyle = bhGradient;
-            ctx.beginPath();
-            ctx.arc(blackHole.x, blackHole.y, blackHole.radius, 0, Math.PI * 2);
-            ctx.fill();
-
-            // Center glow
-            ctx.fillStyle = '#000';
-            ctx.beginPath();
-            ctx.arc(blackHole.x, blackHole.y, blackHole.radius * 0.7, 0, Math.PI * 2);
-            ctx.fill();
-
-            // Emoji
-            ctx.font = '30px Arial';
-            ctx.textAlign = 'center';
-            ctx.textBaseline = 'middle';
-            ctx.fillText('🕳️', blackHole.x, blackHole.y);
+            drawPixelBlackHole(ctx, blackHole.x, blackHole.y, blackHole.radius, blackHole.rotation);
         }
 
         function drawPlayer() {
             if (player.dead) return;
-
-            ctx.save();
-            ctx.translate(player.x, player.y);
-
-            // Shield effect
-            if (player.shield) {
-                ctx.strokeStyle = `rgba(0, 255, 255, ${0.5 + Math.sin(Date.now() / 100) * 0.3})`;
-                ctx.lineWidth = 3;
-                ctx.beginPath();
-                ctx.arc(0, 0, player.size + 5, 0, Math.PI * 2);
-                ctx.stroke();
-            }
-
-            // Speed boost effect
-            if (player.speedBoost) {
-                ctx.fillStyle = 'rgba(255, 255, 0, 0.3)';
-                for (let i = 0; i < 3; i++) {
-                    ctx.beginPath();
-                    ctx.arc(-10 - i * 8, 0, 5 - i, 0, Math.PI * 2);
-                    ctx.fill();
-                }
-            }
-
-            // Ship emoji
-            ctx.font = `${player.size}px Arial`;
-            ctx.textAlign = 'center';
-            ctx.textBaseline = 'middle';
-            ctx.fillText('🚀', 0, 0);
-
-            ctx.restore();
+            drawPixelShip(ctx, player.x, player.y, player.size, player.shield, player.speedBoost);
         }
 
         function drawStars() {
             stars.forEach(star => {
-                const scale = 1 + Math.sin(star.pulse) * 0.2;
-                ctx.font = `${star.size * scale}px Arial`;
-                ctx.textAlign = 'center';
-                ctx.textBaseline = 'middle';
-                ctx.fillText('⭐', star.x, star.y);
+                drawPixelStar(ctx, star.x, star.y, star.size, star.pulse);
             });
         }
 
         function drawMeteors() {
             meteors.forEach(meteor => {
-                ctx.save();
-                ctx.translate(meteor.x, meteor.y);
-                ctx.rotate(meteor.rotation);
-                ctx.font = `${meteor.size}px Arial`;
-                ctx.textAlign = 'center';
-                ctx.textBaseline = 'middle';
-                ctx.fillText('☄️', 0, 0);
-                ctx.restore();
+                drawPixelMeteor(ctx, meteor.x, meteor.y, meteor.size, meteor.rotation);
             });
         }
 
         function drawAliens() {
             aliens.forEach(alien => {
-                const wobbleOffset = Math.sin(alien.wobble) * 3;
-                ctx.font = `${alien.size}px Arial`;
-                ctx.textAlign = 'center';
-                ctx.textBaseline = 'middle';
-                ctx.fillText('👾', alien.x + wobbleOffset, alien.y);
+                drawPixelUFO(ctx, alien.x, alien.y, alien.size, alien.wobble);
             });
         }
 
         function drawPowerUps() {
             powerUps.forEach(p => {
-                const scale = 1 + Math.sin(p.pulse) * 0.15;
-                ctx.font = `${p.size * scale}px Arial`;
-                ctx.textAlign = 'center';
-                ctx.textBaseline = 'middle';
-                ctx.fillText(p.type === 'shield' ? '🛡️' : '⚡', p.x, p.y);
+                if (p.type === 'shield') {
+                    drawPixelShieldPU(ctx, p.x, p.y, p.size, p.pulse);
+                } else {
+                    drawPixelSpeedPU(ctx, p.x, p.y, p.size, p.pulse);
+                }
             });
         }
 
         function drawParticles() {
             particles.forEach(p => {
-                ctx.fillStyle = p.color;
-                ctx.globalAlpha = p.life;
-                ctx.fillRect(p.x - p.size/2, p.y - p.size/2, p.size, p.size);
-                ctx.globalAlpha = 1;
+                drawPixelParticle(ctx, p.x, p.y, p.size, p.color, p.life);
             });
         }
 
         function drawUI() {
             // Score
             ctx.fillStyle = '#0ff';
-            ctx.font = 'bold 24px "Courier New", monospace';
+            ctx.font = 'bold 20px "Courier New", monospace';
             ctx.textAlign = 'left';
-            ctx.fillText(`SCORE: ${score}`, 20, 40);
+            ctx.fillText(`SCORE: ${score}`, 20, 35);
 
             // Survival time
             ctx.fillStyle = '#f0f';
-            ctx.fillText(`TIME: ${survivalTime.toFixed(1)}s`, 20, 70);
+            ctx.fillText(`TIME: ${survivalTime.toFixed(1)}s`, 20, 60);
 
-            // Power-up status
-            let statusY = 100;
+            // Power-up status with pixel icons
+            let statusY = 90;
             if (player.shield) {
+                drawPixelShieldPU(ctx, 30, statusY, 12, Date.now() / 200);
                 ctx.fillStyle = '#0ff';
-                ctx.fillText(`🛡️ ${player.shieldTime.toFixed(1)}s`, 20, statusY);
+                ctx.fillText(`${player.shieldTime.toFixed(1)}s`, 50, statusY + 5);
                 statusY += 30;
             }
             if (player.speedBoost) {
+                drawPixelSpeedPU(ctx, 30, statusY, 12, Date.now() / 200);
                 ctx.fillStyle = '#ff0';
-                ctx.fillText(`⚡ ${player.speedBoostTime.toFixed(1)}s`, 20, statusY);
+                ctx.fillText(`${player.speedBoostTime.toFixed(1)}s`, 50, statusY + 5);
             }
 
             // Game over
             if (player.dead) {
-                ctx.fillStyle = 'rgba(0, 0, 0, 0.7)';
+                ctx.fillStyle = 'rgba(0, 0, 0, 0.8)';
                 ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+                // Glitch effect on game over text
+                const glitchOffset = Math.sin(Date.now() / 50) * 3;
 
                 ctx.fillStyle = '#f00';
                 ctx.font = 'bold 48px "Courier New", monospace';
                 ctx.textAlign = 'center';
-                ctx.fillText('GAME OVER', canvas.width / 2, canvas.height / 2 - 30);
+                ctx.fillText('GAME OVER', canvas.width / 2 + glitchOffset, canvas.height / 2 - 30);
 
                 ctx.fillStyle = '#fff';
                 ctx.font = '24px "Courier New", monospace';
@@ -868,7 +1152,8 @@
             keys[e.code] = false;
         });
 
-        // Initial render
+        // Initialize
+        drawStartScreenIcons();
         initBgStars();
         drawBackground();
         blackHole.x = canvas.width / 2;
