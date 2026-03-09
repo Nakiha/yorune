@@ -320,6 +320,58 @@
             text-align: center;
             line-height: 2;
         }
+
+        /* Audio Controls */
+        #audioControls {
+            position: absolute;
+            bottom: 10px;
+            right: 10px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            background: rgba(10, 10, 15, 0.8);
+            padding: 8px 12px;
+            border: 2px solid var(--accent-purple);
+            z-index: 10;
+        }
+
+        .audio-btn {
+            background: var(--bg-dark);
+            border: 2px solid var(--accent-cyan);
+            color: var(--accent-cyan);
+            font-family: 'Press Start 2P', cursive;
+            font-size: 10px;
+            padding: 5px 10px;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .audio-btn:hover {
+            background: var(--accent-cyan);
+            color: var(--bg-dark);
+        }
+
+        .audio-btn.muted {
+            border-color: var(--accent-red);
+            color: var(--accent-red);
+        }
+
+        .volume-slider {
+            width: 60px;
+            height: 8px;
+            -webkit-appearance: none;
+            background: var(--bg-dark);
+            border: 2px solid var(--accent-purple);
+            cursor: pointer;
+        }
+
+        .volume-slider::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            width: 12px;
+            height: 12px;
+            background: var(--accent-cyan);
+            cursor: pointer;
+        }
     </style>
 </head>
 <body>
@@ -370,6 +422,10 @@
                 </div>
             </div>
         </div>
+        <div id="audioControls">
+            <button class="audio-btn" id="muteBtn" onclick="toggleMute()">SOUND</button>
+            <input type="range" class="volume-slider" id="volumeSlider" min="0" max="100" value="50" onchange="setVolume(this.value)">
+        </div>
     </div>
 
     <!-- Level Up Modal -->
@@ -394,6 +450,293 @@
     </div>
 
     <script>
+        // ============ 8-BIT AUDIO SYSTEM ============
+        class AudioSystem {
+            constructor() {
+                this.ctx = null;
+                this.masterGain = null;
+                this.bgmGain = null;
+                this.sfxGain = null;
+                this.initialized = false;
+                this.muted = false;
+                this.volume = 0.5;
+                this.bgmPlaying = false;
+                this.bgmLoopTimeout = null;
+            }
+
+            init() {
+                if (this.initialized) return;
+                this.ctx = new (window.AudioContext || window.webkitAudioContext)();
+                this.masterGain = this.ctx.createGain();
+                this.masterGain.connect(this.ctx.destination);
+                this.masterGain.gain.value = this.volume;
+
+                this.bgmGain = this.ctx.createGain();
+                this.bgmGain.connect(this.masterGain);
+                this.bgmGain.gain.value = 0.3;
+
+                this.sfxGain = this.ctx.createGain();
+                this.sfxGain.connect(this.masterGain);
+                this.sfxGain.gain.value = 0.6;
+
+                this.initialized = true;
+            }
+
+            // Create oscillator with envelope
+            createTone(freq, duration, type = 'square', gainNode = this.sfxGain) {
+                if (!this.initialized || this.muted) return null;
+                const osc = this.ctx.createOscillator();
+                const env = this.ctx.createGain();
+                osc.type = type;
+                osc.frequency.value = freq;
+                osc.connect(env);
+                env.connect(gainNode);
+                env.gain.setValueAtTime(0.3, this.ctx.currentTime);
+                env.gain.exponentialRampToValueAtTime(0.01, this.ctx.currentTime + duration);
+                osc.start();
+                osc.stop(this.ctx.currentTime + duration);
+                return osc;
+            }
+
+            // Attack sound - short shooting burst
+            playAttack() {
+                if (!this.initialized || this.muted) return;
+                const osc = this.ctx.createOscillator();
+                const env = this.ctx.createGain();
+                osc.type = 'square';
+                osc.frequency.setValueAtTime(880, this.ctx.currentTime);
+                osc.frequency.exponentialRampToValueAtTime(220, this.ctx.currentTime + 0.1);
+                osc.connect(env);
+                env.connect(this.sfxGain);
+                env.gain.setValueAtTime(0.2, this.ctx.currentTime);
+                env.gain.exponentialRampToValueAtTime(0.01, this.ctx.currentTime + 0.1);
+                osc.start();
+                osc.stop(this.ctx.currentTime + 0.1);
+            }
+
+            // Enemy death - explosion
+            playEnemyDeath() {
+                if (!this.initialized || this.muted) return;
+                const noise = this.ctx.createOscillator();
+                const env = this.ctx.createGain();
+                noise.type = 'sawtooth';
+                noise.frequency.setValueAtTime(150, this.ctx.currentTime);
+                noise.frequency.exponentialRampToValueAtTime(30, this.ctx.currentTime + 0.2);
+                noise.connect(env);
+                env.connect(this.sfxGain);
+                env.gain.setValueAtTime(0.3, this.ctx.currentTime);
+                env.gain.exponentialRampToValueAtTime(0.01, this.ctx.currentTime + 0.2);
+                noise.start();
+                noise.stop(this.ctx.currentTime + 0.2);
+
+                // Add noise burst
+                const osc2 = this.ctx.createOscillator();
+                osc2.type = 'square';
+                osc2.frequency.setValueAtTime(80, this.ctx.currentTime);
+                osc2.connect(env);
+                osc2.start(this.ctx.currentTime + 0.05);
+                osc2.stop(this.ctx.currentTime + 0.15);
+            }
+
+            // Collect XP gem - crisp collection sound
+            playCollect() {
+                if (!this.initialized || this.muted) return;
+                const osc = this.ctx.createOscillator();
+                const env = this.ctx.createGain();
+                osc.type = 'square';
+                osc.frequency.setValueAtTime(587, this.ctx.currentTime);
+                osc.frequency.setValueAtTime(880, this.ctx.currentTime + 0.05);
+                osc.connect(env);
+                env.connect(this.sfxGain);
+                env.gain.setValueAtTime(0.15, this.ctx.currentTime);
+                env.gain.exponentialRampToValueAtTime(0.01, this.ctx.currentTime + 0.1);
+                osc.start();
+                osc.stop(this.ctx.currentTime + 0.1);
+            }
+
+            // Level up - ascending scale
+            playLevelUp() {
+                if (!this.initialized || this.muted) return;
+                const notes = [262, 330, 392, 523, 659, 784];
+                notes.forEach((freq, i) => {
+                    const osc = this.ctx.createOscillator();
+                    const env = this.ctx.createGain();
+                    osc.type = 'square';
+                    osc.frequency.value = freq;
+                    osc.connect(env);
+                    env.connect(this.sfxGain);
+                    const start = this.ctx.currentTime + i * 0.1;
+                    env.gain.setValueAtTime(0.2, start);
+                    env.gain.exponentialRampToValueAtTime(0.01, start + 0.15);
+                    osc.start(start);
+                    osc.stop(start + 0.15);
+                });
+            }
+
+            // Hurt - low impact
+            playHurt() {
+                if (!this.initialized || this.muted) return;
+                const osc = this.ctx.createOscillator();
+                const env = this.ctx.createGain();
+                osc.type = 'sawtooth';
+                osc.frequency.setValueAtTime(200, this.ctx.currentTime);
+                osc.frequency.exponentialRampToValueAtTime(50, this.ctx.currentTime + 0.3);
+                osc.connect(env);
+                env.connect(this.sfxGain);
+                env.gain.setValueAtTime(0.4, this.ctx.currentTime);
+                env.gain.exponentialRampToValueAtTime(0.01, this.ctx.currentTime + 0.3);
+                osc.start();
+                osc.stop(this.ctx.currentTime + 0.3);
+            }
+
+            // Game over - descending sad tones
+            playGameOver() {
+                if (!this.initialized || this.muted) return;
+                const notes = [392, 330, 262, 196, 131];
+                notes.forEach((freq, i) => {
+                    const osc = this.ctx.createOscillator();
+                    const env = this.ctx.createGain();
+                    osc.type = 'triangle';
+                    osc.frequency.value = freq;
+                    osc.connect(env);
+                    env.connect(this.sfxGain);
+                    const start = this.ctx.currentTime + i * 0.25;
+                    env.gain.setValueAtTime(0.25, start);
+                    env.gain.exponentialRampToValueAtTime(0.01, start + 0.3);
+                    osc.start(start);
+                    osc.stop(start + 0.3);
+                });
+            }
+
+            // BGM - 8-bit battle theme
+            playBGM() {
+                if (!this.initialized || this.muted || this.bgmPlaying) return;
+                this.bgmPlaying = true;
+                this.playBGMLoop();
+            }
+
+            playBGMLoop() {
+                if (!this.bgmPlaying || this.muted) return;
+
+                // Battle theme notes (aggressive, tense)
+                const bassLine = [
+                    { note: 65, dur: 0.15 }, { note: 65, dur: 0.15 }, { note: 82, dur: 0.15 }, { note: 82, dur: 0.15 },
+                    { note: 73, dur: 0.15 }, { note: 73, dur: 0.15 }, { note: 98, dur: 0.15 }, { note: 98, dur: 0.15 },
+                    { note: 55, dur: 0.15 }, { note: 55, dur: 0.15 }, { note: 73, dur: 0.15 }, { note: 73, dur: 0.15 },
+                    { note: 65, dur: 0.15 }, { note: 65, dur: 0.15 }, { note: 87, dur: 0.15 }, { note: 87, dur: 0.15 },
+                ];
+
+                const melody = [
+                    { note: 262, dur: 0.075 }, { note: 294, dur: 0.075 }, { note: 330, dur: 0.15 }, { note: 0, dur: 0.15 },
+                    { note: 392, dur: 0.075 }, { note: 440, dur: 0.075 }, { note: 392, dur: 0.15 }, { note: 330, dur: 0.15 },
+                    { note: 294, dur: 0.075 }, { note: 262, dur: 0.075 }, { note: 220, dur: 0.15 }, { note: 0, dur: 0.15 },
+                    { note: 196, dur: 0.15 }, { note: 220, dur: 0.15 }, { note: 262, dur: 0.15 }, { note: 0, dur: 0.15 },
+                ];
+
+                const arpeggio = [
+                    { note: 131, dur: 0.075 }, { note: 165, dur: 0.075 }, { note: 196, dur: 0.075 }, { note: 262, dur: 0.075 },
+                    { note: 196, dur: 0.075 }, { note: 165, dur: 0.075 }, { note: 131, dur: 0.075 }, { note: 165, dur: 0.075 },
+                    { note: 147, dur: 0.075 }, { note: 185, dur: 0.075 }, { note: 220, dur: 0.075 }, { note: 294, dur: 0.075 },
+                    { note: 220, dur: 0.075 }, { note: 185, dur: 0.075 }, { note: 147, dur: 0.075 }, { note: 185, dur: 0.075 },
+                ];
+
+                let time = this.ctx.currentTime;
+
+                // Play bass
+                bassLine.forEach(n => {
+                    if (n.note > 0) {
+                        const osc = this.ctx.createOscillator();
+                        const env = this.ctx.createGain();
+                        osc.type = 'square';
+                        osc.frequency.value = n.note;
+                        osc.connect(env);
+                        env.connect(this.bgmGain);
+                        env.gain.setValueAtTime(0.15, time);
+                        env.gain.exponentialRampToValueAtTime(0.01, time + n.dur * 0.9);
+                        osc.start(time);
+                        osc.stop(time + n.dur);
+                    }
+                    time += n.dur;
+                });
+
+                time = this.ctx.currentTime;
+                // Play melody
+                melody.forEach(n => {
+                    if (n.note > 0) {
+                        const osc = this.ctx.createOscillator();
+                        const env = this.ctx.createGain();
+                        osc.type = 'square';
+                        osc.frequency.value = n.note;
+                        osc.connect(env);
+                        env.connect(this.bgmGain);
+                        env.gain.setValueAtTime(0.1, time);
+                        env.gain.exponentialRampToValueAtTime(0.01, time + n.dur * 0.8);
+                        osc.start(time);
+                        osc.stop(time + n.dur);
+                    }
+                    time += n.dur;
+                });
+
+                time = this.ctx.currentTime;
+                // Play arpeggio (lower volume)
+                arpeggio.forEach(n => {
+                    if (n.note > 0) {
+                        const osc = this.ctx.createOscillator();
+                        const env = this.ctx.createGain();
+                        osc.type = 'triangle';
+                        osc.frequency.value = n.note;
+                        osc.connect(env);
+                        env.connect(this.bgmGain);
+                        env.gain.setValueAtTime(0.06, time);
+                        env.gain.exponentialRampToValueAtTime(0.01, time + n.dur * 0.7);
+                        osc.start(time);
+                        osc.stop(time + n.dur);
+                    }
+                    time += n.dur;
+                });
+
+                // Schedule next loop
+                const loopDuration = 2.4; // Total duration of the loop
+                this.bgmLoopTimeout = setTimeout(() => this.playBGMLoop(), loopDuration * 1000);
+            }
+
+            stopBGM() {
+                this.bgmPlaying = false;
+                if (this.bgmLoopTimeout) {
+                    clearTimeout(this.bgmLoopTimeout);
+                    this.bgmLoopTimeout = null;
+                }
+            }
+
+            setVolume(v) {
+                this.volume = v;
+                if (this.masterGain) {
+                    this.masterGain.gain.value = this.volume;
+                }
+            }
+
+            toggleMute() {
+                this.muted = !this.muted;
+                if (this.masterGain) {
+                    this.masterGain.gain.value = this.muted ? 0 : this.volume;
+                }
+                if (this.muted) {
+                    this.stopBGM();
+                } else if (gameRunning && !gamePaused) {
+                    this.playBGM();
+                }
+                return this.muted;
+            }
+
+            resume() {
+                if (this.ctx && this.ctx.state === 'suspended') {
+                    this.ctx.resume();
+                }
+            }
+        }
+
+        const audio = new AudioSystem();
+
         // Game Configuration
         const CONFIG = {
             CANVAS_WIDTH: 800,
@@ -472,9 +815,11 @@
 
         function startGame() {
             document.getElementById('startScreen').style.display = 'none';
+            audio.init();
             resetGame();
             gameRunning = true;
             gameStartTime = Date.now();
+            audio.playBGM();
             requestAnimationFrame(gameLoop);
             setInterval(autoAttack, player.attackSpeed);
             setInterval(spawnEnemy, 1500);
@@ -559,6 +904,7 @@
                 // Check collision with player
                 if (dist < player.size + enemy.size) {
                     player.health -= enemy.damage * 0.02;
+                    audio.playHurt();
                     if (player.health <= 0) {
                         gameOver();
                     }
@@ -580,6 +926,7 @@
                         proj.life = 0;
 
                         if (enemy.health <= 0) {
+                            audio.playEnemyDeath();
                             createParticles(enemy.x, enemy.y, enemy.color, 10);
                             xpGems.push({ x: enemy.x, y: enemy.y, value: enemy.xp, size: 6 });
                             enemies.splice(j, 1);
@@ -605,6 +952,7 @@
                 }
                 if (dist < player.size + gem.size) {
                     player.xp += gem.value;
+                    audio.playCollect();
                     xpGems.splice(i, 1);
 
                     if (player.xp >= player.xpToNext) {
@@ -856,6 +1204,7 @@
                     size: 4,
                     life: 60
                 });
+                audio.playAttack();
             }
         }
 
@@ -927,6 +1276,8 @@
 
         function gameOver() {
             gameRunning = false;
+            audio.stopBGM();
+            audio.playGameOver();
             const elapsed = Math.floor((Date.now() - gameStartTime) / 1000);
             const minutes = Math.floor(elapsed / 60);
             const seconds = elapsed % 60;
@@ -959,6 +1310,23 @@
             const minutes = Math.floor(elapsed / 60);
             const seconds = elapsed % 60;
             document.getElementById('gameTime').textContent = `${minutes}:${seconds.toString().padStart(2, '0')}`;
+        }
+
+        // Audio control functions
+        function toggleMute() {
+            const muted = audio.toggleMute();
+            const btn = document.getElementById('muteBtn');
+            if (muted) {
+                btn.classList.add('muted');
+                btn.textContent = 'UNMUTE';
+            } else {
+                btn.classList.remove('muted');
+                btn.textContent = 'SOUND';
+            }
+        }
+
+        function setVolume(value) {
+            audio.setVolume(value / 100);
         }
 
         // Initialize game
