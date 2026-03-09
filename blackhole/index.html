@@ -50,15 +50,15 @@
         <div>Drag to rotate | Scroll to zoom</div>
     </div>
     <div id="controls">
-        <label>Brightness: <input type="range" id="brightness" min="0.5" max="3" step="0.1" value="1.8"></label>
-        <label>Lensing: <input type="range" id="lensing" min="0.5" max="3" step="0.1" value="1.2"></label>
+        <label>Brightness: <input type="range" id="brightness" min="0.5" max="3" step="0.1" value="2.0"></label>
+        <label>Lensing: <input type="range" id="lensing" min="0.5" max="3" step="0.1" value="1.0"></label>
     </div>
     <div id="debug">Loading...</div>
 
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
 
     <script>
-        console.log('=== Gargantua Black Hole v3.0 ===');
+        console.log('=== Gargantua Black Hole v4.0 ===');
         
         let scene, camera, renderer, material;
         let rotX = 0.3, rotY = 0;
@@ -96,26 +96,23 @@
                 uniform float uLensing;
                 
                 #define RS 1.0
-                #define DISK_INNER 1.5
+                #define DISK_INNER 1.8
                 #define DISK_OUTER 6.0
-                #define MAX_STEPS 150
+                #define MAX_STEPS 120
                 
-                // Hash function
                 float hash(vec2 p) {
                     return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453);
                 }
                 
-                // Temperature to color (blackbody)
                 vec3 blackbody(float T) {
                     T = clamp(T, 1000.0, 40000.0) / 100.0;
                     vec3 c;
                     c.r = T <= 66.0 ? 1.0 : 1.292936 * pow(T - 60.0, -0.1332);
-                    c.g = T <= 66.0 ? max(0.0, 0.390082 * log(T) - 0.631841) : 1.129891 * pow(T - 60.0, -0.0755);
-                    c.b = T >= 66.0 ? 1.0 : T <= 19.0 ? 0.0 : max(0.0, 0.543207 * log(T - 10.0) - 0.196564);
+                    c.g = T <= 66.0 ? max(0.0, 0.390082 * log(max(1.0, T)) - 0.631841) : 1.129891 * pow(T - 60.0, -0.0755);
+                    c.b = T >= 66.0 ? 1.0 : T <= 19.0 ? 0.0 : max(0.0, 0.543207 * log(max(1.0, T - 10.0)) - 0.196564);
                     return clamp(c, 0.0, 1.0);
                 }
                 
-                // Simple noise
                 float noise(vec2 p) {
                     vec2 i = floor(p);
                     vec2 f = fract(p);
@@ -127,38 +124,27 @@
                     );
                 }
                 
-                // Star background
                 vec3 stars(vec2 uv) {
                     vec3 col = vec3(0.0);
                     
-                    // Create stars using hash
-                    vec2 gv = fract(uv * 80.0) - 0.5;
-                    vec2 id = floor(uv * 80.0);
-                    
+                    // Large stars
+                    vec2 gv = fract(uv * 60.0) - 0.5;
+                    vec2 id = floor(uv * 60.0);
                     float n = hash(id);
-                    
-                    if (n > 0.97) {
-                        float star = smoothstep(0.3, 0.0, length(gv));
-                        star *= n;
-                        
-                        // Star color variation
-                        vec3 starCol = mix(
-                            vec3(0.7, 0.8, 1.0),
-                            vec3(1.0, 0.9, 0.7),
-                            hash(id * 1.5)
-                        );
-                        
-                        col += starCol * star * 0.8;
+                    if (n > 0.96) {
+                        float d = length(gv);
+                        float star = smoothstep(0.25, 0.0, d) * n;
+                        vec3 starCol = mix(vec3(0.6, 0.7, 1.0), vec3(1.0, 0.95, 0.8), hash(id * 1.3));
+                        col += starCol * star;
                     }
                     
-                    // Smaller stars
-                    gv = fract(uv * 200.0) - 0.5;
-                    id = floor(uv * 200.0);
+                    // Small stars
+                    gv = fract(uv * 150.0) - 0.5;
+                    id = floor(uv * 150.0);
                     n = hash(id);
-                    
-                    if (n > 0.985) {
-                        float star = smoothstep(0.2, 0.0, length(gv));
-                        col += vec3(0.9, 0.95, 1.0) * star * 0.5 * n;
+                    if (n > 0.98) {
+                        float d = length(gv);
+                        col += vec3(0.9) * smoothstep(0.15, 0.0, d) * n * 0.5;
                     }
                     
                     return col;
@@ -167,92 +153,89 @@
                 void main() {
                     vec2 uv = (gl_FragCoord.xy - 0.5 * uResolution) / uResolution.y;
                     
-                    // Camera
+                    // Camera setup
                     vec3 ro = uCamPos;
-                    vec3 lookAt = vec3(0.0);
-                    
-                    vec3 forward = normalize(lookAt - ro);
+                    vec3 forward = normalize(-ro);
                     vec3 right = normalize(cross(vec3(0.0, 1.0, 0.0), forward));
                     vec3 up = cross(forward, right);
-                    
                     vec3 rd = normalize(forward + uv.x * right + uv.y * up);
                     
+                    // Initialize color
                     vec3 col = vec3(0.0);
+                    float accum = 0.0;
+                    bool hitHorizon = false;
                     
-                    // ========== STAR BACKGROUND ==========
-                    // Project ray to sphere for stars
-                    vec3 starDir = rd;
-                    col += stars(starDir.xy * 2.0 + starDir.z);
-                    
-                    // ========== RAY MARCHING ==========
+                    // Ray marching
                     float t = 0.0;
-                    vec3 diskLight = vec3(0.0);
+                    vec3 originalRd = rd;
                     
                     for (int i = 0; i < MAX_STEPS; i++) {
                         vec3 p = ro + rd * t;
                         float r = length(p);
                         
-                        // Hit event horizon - BLACK
-                        if (r < RS) {
-                            col = vec3(0.0);
-                            diskLight = vec3(0.0);
+                        // Event horizon - pure black, stop everything
+                        if (r < RS * 1.01) {
+                            hitHorizon = true;
                             break;
                         }
                         
-                        if (r > 25.0) break;
+                        // Too far, stop
+                        if (r > 30.0) break;
                         
-                        float stepSize = max(0.03, (r - RS) * 0.05);
+                        // Step size
+                        float stepSize = max(0.02, (r - RS) * 0.04);
                         
                         // Gravitational lensing
-                        if (r < DISK_OUTER * 2.0 && r > RS * 1.1) {
+                        if (r < 15.0) {
                             vec3 toCenter = -normalize(p);
-                            float bend = uLensing * RS * 1.5 / (r * r);
+                            float bend = uLensing * 2.0 * RS / (r * r);
                             rd = normalize(rd + toCenter * bend * stepSize);
                         }
                         
-                        // ========== ACCRETION DISK ==========
-                        if (abs(p.y) < 0.25 && r > DISK_INNER && r < DISK_OUTER) {
-                            float heightFade = 1.0 - abs(p.y) / 0.25;
-                            heightFade = pow(heightFade, 1.5);
+                        // Accretion disk
+                        if (abs(p.y) < 0.2 && r > DISK_INNER && r < DISK_OUTER) {
+                            float heightFade = pow(1.0 - abs(p.y) / 0.2, 2.0);
+                            float radialFade = smoothstep(DISK_INNER, DISK_INNER + 0.5, r) * 
+                                               (1.0 - smoothstep(DISK_OUTER - 0.5, DISK_OUTER, r));
                             
-                            float innerFade = smoothstep(DISK_INNER, DISK_INNER + 0.5, r);
-                            float outerFade = 1.0 - smoothstep(DISK_OUTER - 0.5, DISK_OUTER, r);
-                            float radialFade = innerFade * outerFade;
+                            // Temperature
+                            float temp = 35000.0 * pow(DISK_INNER / r, 0.75);
                             
-                            // Temperature gradient
-                            float temp = 30000.0 * pow(DISK_INNER / r, 0.75);
-                            
-                            // Doppler effect
+                            // Doppler (orbital motion)
                             vec3 vel = normalize(vec3(-p.z, 0.0, p.x));
-                            float doppler = pow(max(0.0, 0.5 + 0.5 * dot(vel, rd)), 2.0) * 2.0;
+                            float doppler = 0.3 + 0.7 * pow(max(0.0, dot(vel, rd) * 0.5 + 0.5), 2.0);
                             
                             // Turbulence
                             float angle = atan(p.z, p.x);
-                            float turbAngle = angle - uTime * 0.3 / max(0.3, r - DISK_INNER);
-                            float turb = noise(vec2(r * 3.0, turbAngle * 4.0)) * 0.5 + 0.5;
+                            float turbAngle = angle - uTime * 0.2 / max(0.5, r - DISK_INNER);
+                            float turb = 0.7 + 0.3 * noise(vec2(r * 4.0, turbAngle * 5.0));
                             
-                            // Intensity
-                            float intensity = heightFade * radialFade * doppler * turb;
-                            intensity *= uBrightness * 0.15;
+                            // Disk intensity
+                            float intensity = heightFade * radialFade * doppler * turb * uBrightness * 0.2;
                             
-                            // Color
+                            // Accumulate disk light
                             vec3 diskCol = blackbody(temp) * intensity;
-                            
-                            // Accumulate
-                            float alpha = intensity * 0.1;
-                            diskLight += diskCol * alpha;
+                            float alpha = intensity * 0.15 * (1.0 - accum);
+                            col += diskCol * alpha;
+                            accum += alpha;
                         }
                         
                         t += stepSize;
                     }
                     
-                    // Combine disk with stars
-                    col += diskLight;
+                    // Stars only if we didn't hit horizon
+                    if (!hitHorizon && accum < 0.9) {
+                        // Project ray direction for stars
+                        vec3 starRd = originalRd;
+                        vec2 starUV = vec2(atan(starRd.z, starRd.x), asin(starRd.y)) * 3.0;
+                        vec3 starCol = stars(starUV + 50.0);
+                        col += starCol * (1.0 - accum);
+                    }
                     
-                    // Photon ring glow
+                    // Einstein ring glow
                     float screenR = length(uv);
-                    float ringGlow = exp(-pow((screenR - 0.12) * 20.0, 2.0)) * 0.3 * uBrightness;
-                    col += vec3(1.0, 0.7, 0.4) * ringGlow;
+                    float ring = exp(-pow((screenR - 0.1) * 25.0, 2.0)) * 0.4 * uBrightness;
+                    col += vec3(1.0, 0.7, 0.4) * ring * (1.0 - accum);
                     
                     // Tone mapping
                     col = col / (1.0 + col);
@@ -271,8 +254,8 @@
                     uTime: { value: 0.0 },
                     uResolution: { value: new THREE.Vector2(window.innerWidth, window.innerHeight) },
                     uCamPos: { value: new THREE.Vector3(0, 3, zoom) },
-                    uBrightness: { value: 1.8 },
-                    uLensing: { value: 1.2 }
+                    uBrightness: { value: 2.0 },
+                    uLensing: { value: 1.0 }
                 }
             });
             
@@ -281,7 +264,6 @@
             const geometry = new THREE.PlaneGeometry(2, 2);
             scene.add(new THREE.Mesh(geometry, material));
             
-            // Events
             window.addEventListener('resize', () => {
                 renderer.setSize(window.innerWidth, window.innerHeight);
                 material.uniforms.uResolution.value.set(window.innerWidth, window.innerHeight);
