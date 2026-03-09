@@ -766,10 +766,24 @@ class Game {
             
             const dist = Math.sqrt((px - trap.x - this.TILE_SIZE/2) ** 2 + (py - trap.y - this.TILE_SIZE/2) ** 2);
             
-            // 隐藏尖刺
-            if (trap.type === 'h_spike' && !trap.triggered && dist < 120) {
-                trap.triggered = true;
-                this.die('spike');
+            // 隐藏尖刺 - 用精确碰撞检测，不是距离
+            if (trap.type === 'h_spike' && !trap.triggered) {
+                // 触发距离（玩家接近时显示）
+                if (dist < 100) {
+                    trap.triggered = true;
+                }
+            }
+            // 已触发的尖刺检测碰撞
+            if (trap.type === 'h_spike' && trap.triggered) {
+                const spikeRect = { 
+                    x: trap.x + 8, 
+                    y: trap.y + 15, 
+                    width: this.TILE_SIZE - 16, 
+                    height: this.TILE_SIZE - 15 
+                };
+                if (this.checkCollision(this.player, spikeRect)) {
+                    this.die('spike');
+                }
             }
             
             // 隐藏敌人
