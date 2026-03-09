@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-    <title>Vampire Survivors - Emoji Meme Edition</title>
+    <title>Vampire Survivors - Pixel Edition</title>
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap');
 
@@ -37,7 +37,7 @@
             align-items: center;
         }
 
-        /* Scanline Effect */
+        /* CRT Scanline Effect */
         body::before {
             content: '';
             position: fixed;
@@ -49,11 +49,24 @@
                 0deg,
                 transparent,
                 transparent 2px,
-                rgba(0, 0, 0, 0.1) 2px,
-                rgba(0, 0, 0, 0.1) 4px
+                rgba(0, 0, 0, 0.15) 2px,
+                rgba(0, 0, 0, 0.15) 4px
             );
             pointer-events: none;
             z-index: 1000;
+        }
+
+        /* CRT vignette */
+        body::after {
+            content: '';
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: radial-gradient(ellipse at center, transparent 0%, rgba(0,0,0,0.4) 100%);
+            pointer-events: none;
+            z-index: 999;
         }
 
         #gameContainer {
@@ -63,8 +76,9 @@
         #gameCanvas {
             display: block;
             image-rendering: pixelated;
+            image-rendering: crisp-edges;
             border: 4px solid var(--accent-purple);
-            box-shadow: 0 0 30px rgba(155, 77, 255, 0.5);
+            box-shadow: 0 0 30px rgba(155, 77, 255, 0.5), inset 0 0 60px rgba(0,0,0,0.3);
         }
 
         /* HUD */
@@ -81,9 +95,10 @@
         }
 
         .hud-left, .hud-right {
-            background: rgba(10, 10, 15, 0.8);
+            background: rgba(10, 10, 15, 0.9);
             padding: 10px;
             border: 2px solid var(--accent-purple);
+            box-shadow: 0 0 10px rgba(155, 77, 255, 0.3);
         }
 
         .stat {
@@ -121,7 +136,7 @@
         }
 
         .xp-bar .bar-fill {
-            background: linear-gradient(90deg, #ffcc00, #ffff66);
+            background: linear-gradient(90deg, #00cc66, #33ff66);
         }
 
         .bar-text {
@@ -191,8 +206,10 @@
             box-shadow: 0 0 20px var(--accent-purple);
         }
 
-        .skill-emoji {
-            font-size: 24px;
+        .skill-icon {
+            width: 32px;
+            height: 32px;
+            image-rendering: pixelated;
         }
 
         .skill-info {
@@ -237,11 +254,6 @@
             margin-bottom: 30px;
             text-shadow: 0 0 20px var(--accent-red);
             animation: pulse 1s infinite;
-        }
-
-        .game-over-emoji {
-            font-size: 48px;
-            margin-bottom: 20px;
         }
 
         @keyframes pulse {
@@ -306,11 +318,6 @@
             text-shadow: 4px 4px 0 var(--accent-cyan), 0 0 30px var(--accent-purple);
             margin-bottom: 10px;
             animation: splashPulse 2s infinite;
-        }
-
-        .splash-emoji {
-            font-size: 48px;
-            margin-bottom: 20px;
         }
 
         @keyframes splashPulse {
@@ -382,11 +389,6 @@
             animation: titlePulse 2s infinite;
         }
 
-        .start-emoji {
-            font-size: 64px;
-            margin-bottom: 20px;
-        }
-
         @keyframes titlePulse {
             0%, 100% { text-shadow: 4px 4px 0 var(--accent-cyan), 0 0 30px var(--accent-purple); }
             50% { text-shadow: -4px -4px 0 var(--accent-cyan), 0 0 50px var(--accent-pink); }
@@ -429,9 +431,10 @@
 
         .enemy-preview {
             margin-top: 30px;
-            font-size: 24px;
+            font-size: 10px;
+            color: var(--accent-cyan);
             display: flex;
-            gap: 15px;
+            gap: 20px;
             justify-content: center;
         }
 
@@ -487,20 +490,8 @@
             cursor: pointer;
         }
 
-        /* Meme Death Effects */
-        .meme-death {
-            position: absolute;
-            font-size: 20px;
-            font-family: 'Press Start 2P', cursive;
-            pointer-events: none;
-            z-index: 50;
-            animation: memeFloat 1s ease-out forwards;
-        }
-
-        @keyframes memeFloat {
-            0% { transform: scale(0.5); opacity: 1; }
-            50% { transform: scale(1.5); opacity: 1; }
-            100% { transform: translateY(-30px) scale(1); opacity: 0; }
+        #startPixelCanvas {
+            margin-bottom: 20px;
         }
     </style>
 </head>
@@ -508,66 +499,56 @@
     <!-- Click to Start Splash Screen -->
     <div id="clickSplash">
         <div class="splash-content">
-            <div class="splash-emoji">🧛</div>
+            <canvas id="splashPixelCanvas" width="64" height="64" style="width: 128px; height: 128px; image-rendering: pixelated; margin-bottom: 20px;"></canvas>
             <h1 class="splash-title">VAMPIRE SURVIVORS</h1>
-            <p class="splash-subtitle">- EMOJI MEME EDITION -</p>
+            <p class="splash-subtitle">- PIXEL EDITION -</p>
             <button class="splash-btn" id="splashStartBtn">CLICK TO START</button>
             <div class="splash-hint">Click anywhere to begin</div>
         </div>
     </div>
 
-    <!-- Start Screen -->
     <div id="startScreen">
-        <div class="start-emoji">🧛</div>
+        <canvas id="startPixelCanvas" width="64" height="64" style="width: 128px; height: 128px; image-rendering: pixelated;"></canvas>
         <h1 class="start-title">VAMPIRE SURVIVORS</h1>
-        <p class="start-subtitle">- EMOJI MEME EDITION -</p>
+        <p class="start-subtitle">- PIXEL EDITION -</p>
         <button class="start-btn" onclick="startGame()">START GAME</button>
         <div class="controls-info">
-            WASD / Arrow Keys - MOVE<br>
-            Auto Attack Nearby Enemies<br>
-            Collect ⭐ Stars to Level Up
+            WASD or Arrow Keys - MOVE<br>
+            Auto-Attack Nearest Enemy<br>
+            Collect Gems to Level Up
         </div>
         <div class="enemy-preview">
-            <span title="Bat">🦇</span>
-            <span title="Skeleton">💀</span>
-            <span title="Zombie">🧟</span>
-            <span title="Ghost">👻</span>
-            <span title="Demon Boss">😈</span>
+            <span>BAT | SKELETON | ZOMBIE | GHOST | DEMON</span>
         </div>
     </div>
 
-    <!-- Game Container -->
     <div id="gameContainer">
         <canvas id="gameCanvas"></canvas>
         <div id="hud">
             <div class="hud-left">
                 <div class="stat">
-                    <span class="stat-label">🧛 HP</span>
+                    <span class="stat-label">HP</span>
                     <div class="bar-container health-bar">
                         <div class="bar-fill" id="healthFill"></div>
                         <span class="bar-text" id="healthText">100/100</span>
                     </div>
                 </div>
                 <div class="stat">
-                    <span class="stat-label">⭐ XP</span>
+                    <span class="stat-label">XP</span>
                     <div class="bar-container xp-bar">
                         <div class="bar-fill" id="xpFill"></div>
                         <span class="bar-text" id="xpText">0/10</span>
                     </div>
                 </div>
+            </div>
+            <div class="hud-right">
                 <div class="stat">
                     <span class="stat-label">LV</span>
                     <span class="stat-value" id="levelValue">1</span>
                 </div>
-            </div>
-            <div class="hud-right">
                 <div class="stat">
-                    <span class="stat-label">💀</span>
+                    <span class="stat-label">KILLS</span>
                     <span class="stat-value" id="killCount">0</span>
-                </div>
-                <div class="stat">
-                    <span class="stat-label">⏱️</span>
-                    <span class="stat-value" id="gameTime">0:00</span>
                 </div>
             </div>
         </div>
@@ -577,360 +558,505 @@
         </div>
     </div>
 
-    <!-- Level Up Modal -->
     <div id="levelUpModal">
         <div class="modal-content">
-            <h2 class="modal-title">⬆️ LEVEL UP! ⬆️</h2>
+            <h2 class="modal-title">LEVEL UP!</h2>
             <div class="skill-options" id="skillOptions"></div>
         </div>
     </div>
 
-    <!-- Game Over Modal -->
     <div id="gameOverModal">
         <div class="game-over-content">
-            <div class="game-over-emoji">💀</div>
             <h2 class="game-over-title">GAME OVER</h2>
             <div class="final-stats">
-                <div class="final-stat">Level: <span id="finalLevel">1</span></div>
-                <div class="final-stat">Kills: <span id="finalKills">0</span></div>
-                <div class="final-stat">Time: <span id="finalTime">0:00</span></div>
+                <p class="final-stat">Level: <span id="finalLevel">1</span></p>
+                <p class="final-stat">Kills: <span id="finalKills">0</span></p>
+                <p class="final-stat">Time: <span id="finalTime">0:00</span></p>
             </div>
-            <button class="restart-btn" onclick="restartGame()">🔄 RESTART</button>
+            <button class="restart-btn" onclick="restartGame()">TRY AGAIN</button>
         </div>
     </div>
 
     <script>
         // ============ 8-BIT AUDIO SYSTEM ============
-        class AudioSystem {
-            constructor() {
-                this.ctx = null;
-                this.masterGain = null;
-                this.bgmGain = null;
-                this.sfxGain = null;
-                this.initialized = false;
-                this.muted = false;
-                this.volume = 0.5;
-                this.bgmPlaying = false;
-                this.bgmLoopTimeout = null;
-            }
+        const audio = {
+            ctx: null,
+            masterGain: null,
+            muted: false,
+            volume: 0.5,
+            bgmOsc: null,
+            bgmGain: null,
+            bgmPlaying: false,
 
             init() {
-                if (this.initialized) return;
+                if (this.ctx) return;
                 this.ctx = new (window.AudioContext || window.webkitAudioContext)();
                 this.masterGain = this.ctx.createGain();
                 this.masterGain.connect(this.ctx.destination);
                 this.masterGain.gain.value = this.volume;
+            },
 
-                this.bgmGain = this.ctx.createGain();
-                this.bgmGain.connect(this.masterGain);
-                this.bgmGain.gain.value = 0.3;
+            playTone(freq, duration, type = 'square', volume = 0.3) {
+                if (!this.ctx || this.muted) return;
+                const osc = this.ctx.createOscillator();
+                const gain = this.ctx.createGain();
+                osc.type = type;
+                osc.frequency.value = freq;
+                gain.gain.value = volume;
+                gain.gain.exponentialRampToValueAtTime(0.01, this.ctx.currentTime + duration);
+                osc.connect(gain);
+                gain.connect(this.masterGain);
+                osc.start();
+                osc.stop(this.ctx.currentTime + duration);
+            },
 
-                this.sfxGain = this.ctx.createGain();
-                this.sfxGain.connect(this.masterGain);
-                this.sfxGain.gain.value = 0.6;
-
-                this.initialized = true;
-            }
-
-            // Attack sound
             playAttack() {
-                if (!this.initialized || this.muted) return;
-                const osc = this.ctx.createOscillator();
-                const env = this.ctx.createGain();
-                osc.type = 'square';
-                osc.frequency.setValueAtTime(880, this.ctx.currentTime);
-                osc.frequency.exponentialRampToValueAtTime(220, this.ctx.currentTime + 0.1);
-                osc.connect(env);
-                env.connect(this.sfxGain);
-                env.gain.setValueAtTime(0.2, this.ctx.currentTime);
-                env.gain.exponentialRampToValueAtTime(0.01, this.ctx.currentTime + 0.1);
-                osc.start();
-                osc.stop(this.ctx.currentTime + 0.1);
-            }
+                this.playTone(880, 0.05, 'square', 0.2);
+                setTimeout(() => this.playTone(440, 0.05, 'square', 0.15), 30);
+            },
 
-            // Enemy death - explosion with meme sound
-            playEnemyDeath() {
-                if (!this.initialized || this.muted) return;
-                const noise = this.ctx.createOscillator();
-                const env = this.ctx.createGain();
-                noise.type = 'sawtooth';
-                noise.frequency.setValueAtTime(150, this.ctx.currentTime);
-                noise.frequency.exponentialRampToValueAtTime(30, this.ctx.currentTime + 0.2);
-                noise.connect(env);
-                env.connect(this.sfxGain);
-                env.gain.setValueAtTime(0.3, this.ctx.currentTime);
-                env.gain.exponentialRampToValueAtTime(0.01, this.ctx.currentTime + 0.2);
-                noise.start();
-                noise.stop(this.ctx.currentTime + 0.2);
-
-                const osc2 = this.ctx.createOscillator();
-                osc2.type = 'square';
-                osc2.frequency.setValueAtTime(80, this.ctx.currentTime);
-                osc2.connect(env);
-                osc2.start(this.ctx.currentTime + 0.05);
-                osc2.stop(this.ctx.currentTime + 0.15);
-            }
-
-            // Collect star - sparkly sound
-            playCollect() {
-                if (!this.initialized || this.muted) return;
-                const osc = this.ctx.createOscillator();
-                const env = this.ctx.createGain();
-                osc.type = 'square';
-                osc.frequency.setValueAtTime(587, this.ctx.currentTime);
-                osc.frequency.setValueAtTime(880, this.ctx.currentTime + 0.05);
-                osc.connect(env);
-                env.connect(this.sfxGain);
-                env.gain.setValueAtTime(0.15, this.ctx.currentTime);
-                env.gain.exponentialRampToValueAtTime(0.01, this.ctx.currentTime + 0.1);
-                osc.start();
-                osc.stop(this.ctx.currentTime + 0.1);
-            }
-
-            // Level up - ascending scale
-            playLevelUp() {
-                if (!this.initialized || this.muted) return;
-                const notes = [262, 330, 392, 523, 659, 784];
-                notes.forEach((freq, i) => {
-                    const osc = this.ctx.createOscillator();
-                    const env = this.ctx.createGain();
-                    osc.type = 'square';
-                    osc.frequency.value = freq;
-                    osc.connect(env);
-                    env.connect(this.sfxGain);
-                    const start = this.ctx.currentTime + i * 0.1;
-                    env.gain.setValueAtTime(0.2, start);
-                    env.gain.exponentialRampToValueAtTime(0.01, start + 0.15);
-                    osc.start(start);
-                    osc.stop(start + 0.15);
-                });
-            }
-
-            // Hurt - low impact
             playHurt() {
-                if (!this.initialized || this.muted) return;
-                const osc = this.ctx.createOscillator();
-                const env = this.ctx.createGain();
-                osc.type = 'sawtooth';
-                osc.frequency.setValueAtTime(200, this.ctx.currentTime);
-                osc.frequency.exponentialRampToValueAtTime(50, this.ctx.currentTime + 0.3);
-                osc.connect(env);
-                env.connect(this.sfxGain);
-                env.gain.setValueAtTime(0.4, this.ctx.currentTime);
-                env.gain.exponentialRampToValueAtTime(0.01, this.ctx.currentTime + 0.3);
-                osc.start();
-                osc.stop(this.ctx.currentTime + 0.3);
-            }
+                this.playTone(200, 0.1, 'sawtooth', 0.3);
+                this.playTone(150, 0.15, 'square', 0.2);
+            },
 
-            // Game over - descending sad tones
+            playEnemyDeath() {
+                this.playTone(600, 0.05, 'square', 0.2);
+                setTimeout(() => this.playTone(800, 0.05, 'square', 0.2), 50);
+                setTimeout(() => this.playTone(400, 0.1, 'square', 0.15), 100);
+            },
+
+            playCollect() {
+                this.playTone(523, 0.08, 'square', 0.2);
+                setTimeout(() => this.playTone(659, 0.08, 'square', 0.2), 80);
+                setTimeout(() => this.playTone(784, 0.1, 'square', 0.15), 160);
+            },
+
+            playLevelUp() {
+                const notes = [523, 659, 784, 1047];
+                notes.forEach((n, i) => setTimeout(() => this.playTone(n, 0.15, 'square', 0.25), i * 100));
+            },
+
             playGameOver() {
-                if (!this.initialized || this.muted) return;
-                const notes = [392, 330, 262, 196, 131];
-                notes.forEach((freq, i) => {
-                    const osc = this.ctx.createOscillator();
-                    const env = this.ctx.createGain();
-                    osc.type = 'triangle';
-                    osc.frequency.value = freq;
-                    osc.connect(env);
-                    env.connect(this.sfxGain);
-                    const start = this.ctx.currentTime + i * 0.25;
-                    env.gain.setValueAtTime(0.25, start);
-                    env.gain.exponentialRampToValueAtTime(0.01, start + 0.3);
-                    osc.start(start);
-                    osc.stop(start + 0.3);
-                });
-            }
+                const notes = [392, 349, 330, 262];
+                notes.forEach((n, i) => setTimeout(() => this.playTone(n, 0.2, 'sawtooth', 0.3), i * 150));
+            },
 
-            // BGM - 8-bit battle theme
+            playClick() {
+                this.playTone(1000, 0.05, 'square', 0.2);
+            },
+
             playBGM() {
-                if (!this.initialized || this.muted || this.bgmPlaying) return;
+                if (!this.ctx || this.bgmPlaying) return;
                 this.bgmPlaying = true;
-                this.playBGMLoop();
-            }
 
-            playBGMLoop() {
-                if (!this.bgmPlaying || this.muted) return;
-
-                const bassLine = [
-                    { note: 65, dur: 0.15 }, { note: 65, dur: 0.15 }, { note: 82, dur: 0.15 }, { note: 82, dur: 0.15 },
-                    { note: 73, dur: 0.15 }, { note: 73, dur: 0.15 }, { note: 98, dur: 0.15 }, { note: 98, dur: 0.15 },
-                    { note: 55, dur: 0.15 }, { note: 55, dur: 0.15 }, { note: 73, dur: 0.15 }, { note: 73, dur: 0.15 },
-                    { note: 65, dur: 0.15 }, { note: 65, dur: 0.15 }, { note: 87, dur: 0.15 }, { note: 87, dur: 0.15 },
-                ];
-
-                const melody = [
-                    { note: 262, dur: 0.075 }, { note: 294, dur: 0.075 }, { note: 330, dur: 0.15 }, { note: 0, dur: 0.15 },
-                    { note: 392, dur: 0.075 }, { note: 440, dur: 0.075 }, { note: 392, dur: 0.15 }, { note: 330, dur: 0.15 },
-                    { note: 294, dur: 0.075 }, { note: 262, dur: 0.075 }, { note: 220, dur: 0.15 }, { note: 0, dur: 0.15 },
-                    { note: 196, dur: 0.15 }, { note: 220, dur: 0.15 }, { note: 262, dur: 0.15 }, { note: 0, dur: 0.15 },
-                ];
-
-                let time = this.ctx.currentTime;
-
-                bassLine.forEach(n => {
-                    if (n.note > 0) {
-                        const osc = this.ctx.createOscillator();
-                        const env = this.ctx.createGain();
-                        osc.type = 'square';
-                        osc.frequency.value = n.note;
-                        osc.connect(env);
-                        env.connect(this.bgmGain);
-                        env.gain.setValueAtTime(0.15, time);
-                        env.gain.exponentialRampToValueAtTime(0.01, time + n.dur * 0.9);
-                        osc.start(time);
-                        osc.stop(time + n.dur);
-                    }
-                    time += n.dur;
-                });
-
-                time = this.ctx.currentTime;
-                melody.forEach(n => {
-                    if (n.note > 0) {
-                        const osc = this.ctx.createOscillator();
-                        const env = this.ctx.createGain();
-                        osc.type = 'square';
-                        osc.frequency.value = n.note;
-                        osc.connect(env);
-                        env.connect(this.bgmGain);
-                        env.gain.setValueAtTime(0.1, time);
-                        env.gain.exponentialRampToValueAtTime(0.01, time + n.dur * 0.8);
-                        osc.start(time);
-                        osc.stop(time + n.dur);
-                    }
-                    time += n.dur;
-                });
-
-                const loopDuration = 2.4;
-                this.bgmLoopTimeout = setTimeout(() => this.playBGMLoop(), loopDuration * 1000);
-            }
+                const playBassLine = () => {
+                    if (!this.bgmPlaying || this.muted) return;
+                    const bassNotes = [110, 110, 146.83, 130.81, 110, 98, 110, 146.83];
+                    let time = 0;
+                    bassNotes.forEach(note => {
+                        setTimeout(() => {
+                            if (!this.bgmPlaying || this.muted) return;
+                            const osc = this.ctx.createOscillator();
+                            const gain = this.ctx.createGain();
+                            osc.type = 'triangle';
+                            osc.frequency.value = note;
+                            gain.gain.value = 0.08;
+                            gain.gain.exponentialRampToValueAtTime(0.01, this.ctx.currentTime + 0.2);
+                            osc.connect(gain);
+                            gain.connect(this.masterGain);
+                            osc.start();
+                            osc.stop(this.ctx.currentTime + 0.25);
+                        }, time);
+                        time += 300;
+                    });
+                    if (this.bgmPlaying) setTimeout(playBassLine, 2400);
+                };
+                playBassLine();
+            },
 
             stopBGM() {
                 this.bgmPlaying = false;
-                if (this.bgmLoopTimeout) {
-                    clearTimeout(this.bgmLoopTimeout);
-                    this.bgmLoopTimeout = null;
-                }
-            }
+            },
 
             setVolume(v) {
-                this.volume = v;
-                if (this.masterGain) {
-                    this.masterGain.gain.value = this.volume;
-                }
-            }
-
-            playClick() {
-                if (!this.initialized || this.muted) return;
-                const osc = this.ctx.createOscillator();
-                const env = this.ctx.createGain();
-                osc.type = 'square';
-                osc.frequency.setValueAtTime(600, this.ctx.currentTime);
-                osc.frequency.exponentialRampToValueAtTime(200, this.ctx.currentTime + 0.1);
-                osc.connect(env);
-                env.connect(this.sfxGain);
-                env.gain.setValueAtTime(0.2, this.ctx.currentTime);
-                env.gain.exponentialRampToValueAtTime(0.01, this.ctx.currentTime + 0.1);
-                osc.start();
-                osc.stop(this.ctx.currentTime + 0.1);
-            }
+                this.volume = v / 100;
+                if (this.masterGain) this.masterGain.gain.value = this.volume;
+            },
 
             toggleMute() {
                 this.muted = !this.muted;
-                if (this.masterGain) {
-                    this.masterGain.gain.value = this.muted ? 0 : this.volume;
-                }
-                if (this.muted) {
-                    this.stopBGM();
-                } else if (gameRunning && !gamePaused) {
-                    this.playBGM();
-                }
-                return this.muted;
+                document.getElementById('muteBtn').classList.toggle('muted', this.muted);
+                document.getElementById('muteBtn').textContent = this.muted ? 'MUTED' : 'SOUND';
             }
+        };
 
-            resume() {
-                if (this.ctx && this.ctx.state === 'suspended') {
-                    this.ctx.resume();
-                }
-            }
+        function toggleMute() { audio.toggleMute(); }
+        function setVolume(v) { audio.setVolume(v); }
+
+        // ============ PIXEL ART DRAWING FUNCTIONS ============
+
+        function drawPixelVampire(ctx, x, y, size) {
+            const p = size / 16; // pixel size
+            ctx.save();
+            ctx.translate(x - size/2, y - size/2);
+
+            // Cape (black with red interior)
+            ctx.fillStyle = '#1a1a1a';
+            drawPixelRect(ctx, 4*p, 6*p, 8*p, 10*p);
+            ctx.fillStyle = '#8b0000';
+            drawPixelRect(ctx, 5*p, 7*p, 6*p, 8*p);
+
+            // Body
+            ctx.fillStyle = '#2a2a2a';
+            drawPixelRect(ctx, 5*p, 5*p, 6*p, 8*p);
+
+            // Head (pale skin)
+            ctx.fillStyle = '#e8d8c8';
+            drawPixelRect(ctx, 5*p, 1*p, 6*p, 5*p);
+
+            // Hair (black, slicked back)
+            ctx.fillStyle = '#1a1a1a';
+            drawPixelRect(ctx, 5*p, 0, 6*p, 2*p);
+            drawPixelRect(ctx, 4*p, 1*p, 1*p, 2*p);
+            drawPixelRect(ctx, 11*p, 1*p, 1*p, 2*p);
+
+            // Eyes (glowing red)
+            ctx.fillStyle = '#ff0000';
+            drawPixelRect(ctx, 6*p, 3*p, 1*p, 1*p);
+            drawPixelRect(ctx, 9*p, 3*p, 1*p, 1*p);
+            ctx.fillStyle = '#ff6666';
+            ctx.globalAlpha = 0.5 + Math.sin(Date.now() / 100) * 0.3;
+            drawPixelRect(ctx, 6*p, 3*p, 1*p, 1*p);
+            drawPixelRect(ctx, 9*p, 3*p, 1*p, 1*p);
+            ctx.globalAlpha = 1;
+
+            // Fangs
+            ctx.fillStyle = '#ffffff';
+            drawPixelRect(ctx, 7*p, 5*p, 1*p, 1*p);
+            drawPixelRect(ctx, 8*p, 5*p, 1*p, 1*p);
+
+            // Collar
+            ctx.fillStyle = '#8b0000';
+            drawPixelRect(ctx, 4*p, 5*p, 1*p, 2*p);
+            drawPixelRect(ctx, 11*p, 5*p, 1*p, 2*p);
+
+            ctx.restore();
         }
 
-        const audio = new AudioSystem();
+        function drawPixelBat(ctx, x, y, size, time) {
+            const p = size / 16;
+            ctx.save();
+            ctx.translate(x - size/2, y - size/2);
 
-        // Game Configuration
+            const wingOffset = Math.sin(time / 100) * 2 * p;
+
+            // Wings (spread, animated)
+            ctx.fillStyle = '#1a1a1a';
+            // Left wing
+            drawPixelRect(ctx, 0, 4*p + wingOffset, 6*p, 4*p);
+            drawPixelRect(ctx, 0, 8*p + wingOffset, 4*p, 2*p);
+            // Right wing
+            drawPixelRect(ctx, 10*p, 4*p - wingOffset, 6*p, 4*p);
+            drawPixelRect(ctx, 12*p, 8*p - wingOffset, 4*p, 2*p);
+
+            // Body
+            ctx.fillStyle = '#2d2d2d';
+            drawPixelRect(ctx, 6*p, 4*p, 4*p, 8*p);
+
+            // Head
+            ctx.fillStyle = '#1a1a1a';
+            drawPixelRect(ctx, 6*p, 2*p, 4*p, 4*p);
+
+            // Ears
+            drawPixelRect(ctx, 6*p, 0, 1*p, 2*p);
+            drawPixelRect(ctx, 9*p, 0, 1*p, 2*p);
+
+            // Eyes (red glow)
+            ctx.fillStyle = '#ff3333';
+            drawPixelRect(ctx, 7*p, 3*p, 1*p, 1*p);
+            drawPixelRect(ctx, 8*p, 3*p, 1*p, 1*p);
+
+            ctx.restore();
+        }
+
+        function drawPixelSkeleton(ctx, x, y, size) {
+            const p = size / 16;
+            ctx.save();
+            ctx.translate(x - size/2, y - size/2);
+
+            // Skull
+            ctx.fillStyle = '#f0f0e0';
+            drawPixelRect(ctx, 4*p, 0, 8*p, 8*p);
+
+            // Eye sockets (dark)
+            ctx.fillStyle = '#1a1a1a';
+            drawPixelRect(ctx, 5*p, 2*p, 2*p, 2*p);
+            drawPixelRect(ctx, 9*p, 2*p, 2*p, 2*p);
+
+            // Glowing eyes
+            ctx.fillStyle = '#00ff66';
+            drawPixelRect(ctx, 5.5*p, 2.5*p, 1*p, 1*p);
+            drawPixelRect(ctx, 9.5*p, 2.5*p, 1*p, 1*p);
+
+            // Nose hole
+            ctx.fillStyle = '#1a1a1a';
+            drawPixelRect(ctx, 7*p, 4*p, 2*p, 2*p);
+
+            // Teeth
+            drawPixelRect(ctx, 5*p, 6*p, 6*p, 2*p);
+
+            // Spine
+            ctx.fillStyle = '#f0f0e0';
+            drawPixelRect(ctx, 7*p, 8*p, 2*p, 6*p);
+
+            // Ribs
+            drawPixelRect(ctx, 4*p, 9*p, 8*p, 1*p);
+            drawPixelRect(ctx, 5*p, 11*p, 6*p, 1*p);
+            drawPixelRect(ctx, 6*p, 13*p, 4*p, 1*p);
+
+            // Arms
+            drawPixelRect(ctx, 2*p, 9*p, 2*p, 1*p);
+            drawPixelRect(ctx, 12*p, 9*p, 2*p, 1*p);
+
+            ctx.restore();
+        }
+
+        function drawPixelZombie(ctx, x, y, size) {
+            const p = size / 16;
+            ctx.save();
+            ctx.translate(x - size/2, y - size/2);
+
+            // Body (tattered clothes)
+            ctx.fillStyle = '#4a4a3a';
+            drawPixelRect(ctx, 5*p, 7*p, 6*p, 8*p);
+
+            // Head (green skin)
+            ctx.fillStyle = '#5a8a5a';
+            drawPixelRect(ctx, 4*p, 1*p, 8*p, 7*p);
+
+            // Hair (patchy)
+            ctx.fillStyle = '#2a2a2a';
+            drawPixelRect(ctx, 4*p, 0, 4*p, 2*p);
+            drawPixelRect(ctx, 10*p, 1*p, 2*p, 1*p);
+
+            // Eyes (one normal, one dead)
+            ctx.fillStyle = '#ffff00';
+            drawPixelRect(ctx, 5*p, 3*p, 2*p, 2*p);
+            ctx.fillStyle = '#888888';
+            drawPixelRect(ctx, 9*p, 3*p, 2*p, 2*p);
+
+            // Pupils
+            ctx.fillStyle = '#000000';
+            drawPixelRect(ctx, 6*p, 3.5*p, 1*p, 1*p);
+
+            // Mouth
+            ctx.fillStyle = '#3a2a2a';
+            drawPixelRect(ctx, 6*p, 5*p, 4*p, 2*p);
+
+            // Teeth
+            ctx.fillStyle = '#d8d8c8';
+            drawPixelRect(ctx, 7*p, 5*p, 1*p, 1*p);
+            drawPixelRect(ctx, 9*p, 5*p, 1*p, 1*p);
+
+            // Torn clothes details
+            ctx.fillStyle = '#3a3a2a';
+            drawPixelRect(ctx, 5*p, 9*p, 2*p, 2*p);
+            drawPixelRect(ctx, 10*p, 11*p, 1*p, 3*p);
+
+            // Arms
+            ctx.fillStyle = '#5a8a5a';
+            drawPixelRect(ctx, 3*p, 8*p, 2*p, 4*p);
+            drawPixelRect(ctx, 11*p, 8*p, 2*p, 4*p);
+
+            ctx.restore();
+        }
+
+        function drawPixelGhost(ctx, x, y, size, time) {
+            const p = size / 16;
+            ctx.save();
+            ctx.translate(x - size/2, y - size/2);
+
+            const floatOffset = Math.sin(time / 200) * 2 * p;
+
+            // Ghost body (semi-transparent)
+            ctx.fillStyle = 'rgba(220, 220, 255, 0.7)';
+            drawPixelRect(ctx, 3*p, 0 + floatOffset, 10*p, 12*p);
+
+            // Wavy bottom
+            drawPixelRect(ctx, 3*p, 12*p + floatOffset, 2*p, 2*p);
+            drawPixelRect(ctx, 6*p, 12*p + floatOffset, 2*p, 2*p);
+            drawPixelRect(ctx, 9*p, 12*p + floatOffset, 2*p, 2*p);
+            drawPixelRect(ctx, 4*p, 14*p + floatOffset, 2*p, 1*p);
+            drawPixelRect(ctx, 10*p, 14*p + floatOffset, 2*p, 1*p);
+
+            // Eyes (hollow)
+            ctx.fillStyle = '#1a1a2a';
+            drawPixelRect(ctx, 5*p, 4*p + floatOffset, 2*p, 3*p);
+            drawPixelRect(ctx, 9*p, 4*p + floatOffset, 2*p, 3*p);
+
+            // Eye glow
+            ctx.fillStyle = 'rgba(100, 150, 255, 0.5)';
+            drawPixelRect(ctx, 5.5*p, 5*p + floatOffset, 1*p, 1*p);
+            drawPixelRect(ctx, 9.5*p, 5*p + floatOffset, 1*p, 1*p);
+
+            // Mouth
+            ctx.fillStyle = '#1a1a2a';
+            drawPixelRect(ctx, 7*p, 9*p + floatOffset, 2*p, 2*p);
+
+            ctx.restore();
+        }
+
+        function drawPixelDemon(ctx, x, y, size, time) {
+            const p = size / 16;
+            ctx.save();
+            ctx.translate(x - size/2, y - size/2);
+
+            // Wings
+            ctx.fillStyle = '#660000';
+            drawPixelRect(ctx, 0, 4*p, 4*p, 8*p);
+            drawPixelRect(ctx, 12*p, 4*p, 4*p, 8*p);
+
+            // Body
+            ctx.fillStyle = '#8b0000';
+            drawPixelRect(ctx, 4*p, 6*p, 8*p, 10*p);
+
+            // Head
+            ctx.fillStyle = '#cc0000';
+            drawPixelRect(ctx, 5*p, 1*p, 6*p, 6*p);
+
+            // Horns
+            ctx.fillStyle = '#4a0000';
+            drawPixelRect(ctx, 4*p, 0, 2*p, 3*p);
+            drawPixelRect(ctx, 10*p, 0, 2*p, 3*p);
+
+            // Eyes (glowing yellow)
+            ctx.fillStyle = '#ffff00';
+            drawPixelRect(ctx, 6*p, 3*p, 2*p, 2*p);
+            drawPixelRect(ctx, 9*p, 3*p, 2*p, 2*p);
+
+            // Pupils
+            ctx.fillStyle = '#000000';
+            drawPixelRect(ctx, 7*p, 3.5*p, 1*p, 1*p);
+            drawPixelRect(ctx, 10*p, 3.5*p, 1*p, 1*p);
+
+            // Evil grin
+            ctx.fillStyle = '#ffffff';
+            drawPixelRect(ctx, 6*p, 5*p, 5*p, 1*p);
+
+            // Fangs
+            ctx.fillStyle = '#ffffff';
+            drawPixelRect(ctx, 6*p, 6*p, 1*p, 1*p);
+            drawPixelRect(ctx, 10*p, 6*p, 1*p, 1*p);
+
+            // Fire glow effect
+            ctx.fillStyle = `rgba(255, 100, 0, ${0.3 + Math.sin(time / 100) * 0.2})`;
+            drawPixelRect(ctx, 5*p, 1*p, 6*p, 15*p);
+
+            ctx.restore();
+        }
+
+        function drawPixelGem(ctx, x, y, size, time) {
+            const p = size / 8;
+            ctx.save();
+            ctx.translate(x - size/2, y - size/2);
+
+            // Gem shape (diamond)
+            const pulse = 0.8 + Math.sin(time / 150) * 0.2;
+
+            // Outer glow
+            ctx.fillStyle = `rgba(0, 255, 150, ${0.3 * pulse})`;
+            drawPixelRect(ctx, 0, 2*p, 8*p, 4*p);
+
+            // Main gem
+            ctx.fillStyle = '#00ff99';
+            drawPixelRect(ctx, 2*p, 0, 4*p, 2*p); // top
+            drawPixelRect(ctx, 1*p, 2*p, 6*p, 4*p); // middle
+            drawPixelRect(ctx, 2*p, 6*p, 4*p, 2*p); // bottom
+
+            // Highlight
+            ctx.fillStyle = '#99ffcc';
+            drawPixelRect(ctx, 3*p, 2*p, 2*p, 2*p);
+
+            // Shine effect
+            ctx.fillStyle = '#ffffff';
+            ctx.globalAlpha = pulse;
+            drawPixelRect(ctx, 3*p, 1*p, 1*p, 1*p);
+            ctx.globalAlpha = 1;
+
+            ctx.restore();
+        }
+
+        function drawPixelRect(ctx, x, y, w, h) {
+            ctx.fillRect(Math.floor(x), Math.floor(y), Math.ceil(w), Math.ceil(h));
+        }
+
+        // Draw splash/start screen vampire
+        function drawSplashVampire(canvas) {
+            const ctx = canvas.getContext('2d');
+            ctx.clearRect(0, 0, 64, 64);
+            drawPixelVampire(ctx, 32, 32, 56);
+        }
+
+        // ============ GAME CODE ============
+
         const CONFIG = {
             CANVAS_WIDTH: 800,
             CANVAS_HEIGHT: 600,
             PLAYER_SIZE: 24,
-            PLAYER_SPEED: 3,
+            PLAYER_SPEED: 4,
             INITIAL_HEALTH: 100,
-            INITIAL_DAMAGE: 10,
-            INITIAL_ATTACK_SPEED: 1000,
-            INITIAL_ATTACK_RANGE: 80,
+            INITIAL_DAMAGE: 20,
+            INITIAL_ATTACK_SPEED: 500,
+            INITIAL_ATTACK_RANGE: 150,
             XP_BASE: 10,
             XP_MULTIPLIER: 1.5
         };
 
-        // Game State
         let canvas, ctx;
         let gameRunning = false;
         let gamePaused = false;
-        let gameStartTime = 0;
-        let kills = 0;
-
-        // Player
-        let player = {
-            x: CONFIG.CANVAS_WIDTH / 2,
-            y: CONFIG.CANVAS_HEIGHT / 2,
-            size: CONFIG.PLAYER_SIZE,
-            health: CONFIG.INITIAL_HEALTH,
-            maxHealth: CONFIG.INITIAL_HEALTH,
-            damage: CONFIG.INITIAL_DAMAGE,
-            attackSpeed: CONFIG.INITIAL_ATTACK_SPEED,
-            attackRange: CONFIG.INITIAL_ATTACK_RANGE,
-            speed: CONFIG.PLAYER_SPEED,
-            xp: 0,
-            xpToNext: CONFIG.XP_BASE,
-            level: 1
-        };
-
-        // Collections
+        let gameStartTime;
+        let player;
         let enemies = [];
         let projectiles = [];
         let xpGems = [];
         let particles = [];
         let memeEffects = [];
+        let kills = 0;
 
-        // Input
         const keys = {};
 
-        // Skills with emojis
         const SKILLS = [
-            { name: '⚔️ DAMAGE UP', emoji: '⚔️', desc: '+20% Attack Damage', stat: 'damage', value: 0.2, type: 'multiply' },
-            { name: '⚡ ATTACK SPEED', emoji: '⚡', desc: '+15% Attack Speed', stat: 'attackSpeed', value: -0.15, type: 'multiply' },
-            { name: '🎯 RANGE UP', emoji: '🎯', desc: '+25% Attack Range', stat: 'attackRange', value: 0.25, type: 'multiply' },
-            { name: '❤️ MAX HP', emoji: '❤️', desc: '+25 Max Health', stat: 'maxHealth', value: 25, type: 'add' },
-            { name: '🏃 SPEED UP', emoji: '🏃', desc: '+10% Move Speed', stat: 'speed', value: 0.1, type: 'multiply' },
-            { name: '💊 HEAL', emoji: '💊', desc: 'Restore 30 HP', stat: 'health', value: 30, type: 'add', max: 'maxHealth' }
+            { name: 'DAMAGE UP', icon: 'sword', desc: '+20% Attack Damage', stat: 'damage', value: 0.2, type: 'multiply' },
+            { name: 'ATK SPEED', icon: 'lightning', desc: '+15% Attack Speed', stat: 'attackSpeed', value: -0.15, type: 'multiply' },
+            { name: 'RANGE UP', icon: 'target', desc: '+25% Attack Range', stat: 'attackRange', value: 0.25, type: 'multiply' },
+            { name: 'MAX HP', icon: 'heart', desc: '+25 Max Health', stat: 'maxHealth', value: 25, type: 'add' },
+            { name: 'SPEED UP', icon: 'boot', desc: '+10% Move Speed', stat: 'speed', value: 0.1, type: 'multiply' },
+            { name: 'HEAL', icon: 'potion', desc: 'Restore 30 HP', stat: 'health', value: 30, type: 'add', max: 'maxHealth' }
         ];
 
-        // Enemy Types with Emojis
         const ENEMY_TYPES = {
-            bat: { emoji: '🦇', size: 20, speed: 2.5, health: 15, damage: 5, xp: 1 },
-            skeleton: { emoji: '💀', size: 22, speed: 1.5, health: 30, damage: 10, xp: 2 },
-            zombie: { emoji: '🧟', size: 26, speed: 1, health: 50, damage: 15, xp: 3 },
-            ghost: { emoji: '👻', size: 24, speed: 2, health: 20, damage: 8, xp: 2 },
-            demon: { emoji: '😈', size: 32, speed: 1.2, health: 80, damage: 20, xp: 5 }
+            bat: { draw: drawPixelBat, size: 20, speed: 2.5, health: 15, damage: 5, xp: 1 },
+            skeleton: { draw: drawPixelSkeleton, size: 22, speed: 1.5, health: 30, damage: 10, xp: 2 },
+            zombie: { draw: drawPixelZombie, size: 26, speed: 1, health: 50, damage: 15, xp: 3 },
+            ghost: { draw: drawPixelGhost, size: 24, speed: 2, health: 20, damage: 8, xp: 2 },
+            demon: { draw: drawPixelDemon, size: 32, speed: 1.2, health: 80, damage: 20, xp: 5 }
         };
 
-        // Meme death messages
-        const MEME_DEATHS = ['💀', '☠️', 'LOL', 'GG', 'RIP', 'F', 'LMAO', 'BRUH', 'NOOB', 'GET REKT', 'OOF', 'YEET', 'POG'];
+        const MEME_DEATHS = ['RIP', 'GG', 'F', 'LOL', 'OOF', 'BRUH', 'NOOB', 'YEET', 'REKT', 'POG'];
 
-        // Initialize
         function init() {
             canvas = document.getElementById('gameCanvas');
             ctx = canvas.getContext('2d');
             canvas.width = CONFIG.CANVAS_WIDTH;
             canvas.height = CONFIG.CANVAS_HEIGHT;
+
+            // Draw splash screen vampire
+            const splashCanvas = document.getElementById('splashPixelCanvas');
+            const startCanvas = document.getElementById('startPixelCanvas');
+            drawSplashVampire(splashCanvas);
+            drawSplashVampire(startCanvas);
 
             document.addEventListener('keydown', (e) => keys[e.key.toLowerCase()] = true);
             document.addEventListener('keyup', (e) => keys[e.key.toLowerCase()] = false);
@@ -947,7 +1073,6 @@
             setInterval(spawnEnemy, 1500);
         }
 
-        // Splash screen - click to start and init audio
         function hideSplashAndInit() {
             const splash = document.getElementById('clickSplash');
             splash.classList.add('hidden');
@@ -999,7 +1124,6 @@
             gameStartTime = Date.now();
         }
 
-        // Game Loop
         let lastTime = 0;
         function gameLoop(timestamp) {
             if (!gameRunning) return;
@@ -1016,7 +1140,6 @@
         }
 
         function update(deltaTime) {
-            // Player Movement
             let dx = 0, dy = 0;
             if (keys['w'] || keys['arrowup']) dy -= 1;
             if (keys['s'] || keys['arrowdown']) dy += 1;
@@ -1031,11 +1154,9 @@
                 player.y += dy * player.speed;
             }
 
-            // Keep player in bounds
             player.x = Math.max(player.size, Math.min(CONFIG.CANVAS_WIDTH - player.size, player.x));
             player.y = Math.max(player.size, Math.min(CONFIG.CANVAS_HEIGHT - player.size, player.y));
 
-            // Update enemies
             enemies.forEach(enemy => {
                 const dx = player.x - enemy.x;
                 const dy = player.y - enemy.y;
@@ -1045,7 +1166,6 @@
                     enemy.y += (dy / dist) * enemy.speed;
                 }
 
-                // Check collision with player
                 if (dist < player.size + enemy.size / 2) {
                     player.health -= enemy.damage * 0.02;
                     audio.playHurt();
@@ -1055,13 +1175,11 @@
                 }
             });
 
-            // Update projectiles
             projectiles.forEach((proj, i) => {
                 proj.x += proj.vx;
                 proj.y += proj.vy;
                 proj.life--;
 
-                // Check collision with enemies
                 enemies.forEach((enemy, j) => {
                     const dist = Math.sqrt((proj.x - enemy.x) ** 2 + (proj.y - enemy.y) ** 2);
                     if (dist < enemy.size / 2 + proj.size) {
@@ -1071,10 +1189,8 @@
 
                         if (enemy.health <= 0) {
                             audio.playEnemyDeath();
-                            createParticles(enemy.x, enemy.y, enemy.color || '#ff0000', 10);
-                            // Spawn star gem
+                            createParticles(enemy.x, enemy.y, '#ff3333', 10);
                             xpGems.push({ x: enemy.x, y: enemy.y, value: enemy.xp, size: 16 });
-                            // Create meme death effect
                             createMemeDeath(enemy.x, enemy.y);
                             enemies.splice(j, 1);
                             kills++;
@@ -1087,11 +1203,9 @@
                 }
             });
 
-            // Collect XP gems (stars)
             xpGems.forEach((gem, i) => {
                 const dist = Math.sqrt((player.x - gem.x) ** 2 + (player.y - gem.y) ** 2);
                 if (dist < 60) {
-                    // Attract towards player
                     const dx = player.x - gem.x;
                     const dy = player.y - gem.y;
                     gem.x += dx * 0.1;
@@ -1108,7 +1222,6 @@
                 }
             });
 
-            // Update particles
             particles.forEach((p, i) => {
                 p.x += p.vx;
                 p.y += p.vy;
@@ -1116,7 +1229,6 @@
                 if (p.life <= 0) particles.splice(i, 1);
             });
 
-            // Update meme effects
             memeEffects.forEach((m, i) => {
                 m.life--;
                 m.y -= 1;
@@ -1138,7 +1250,6 @@
         }
 
         function render() {
-            // Clear canvas
             ctx.fillStyle = '#0a0a0f';
             ctx.fillRect(0, 0, CONFIG.CANVAS_WIDTH, CONFIG.CANVAS_HEIGHT);
 
@@ -1164,20 +1275,16 @@
             ctx.strokeStyle = 'rgba(155, 77, 255, 0.2)';
             ctx.stroke();
 
-            // Draw XP gems (stars)
-            ctx.font = '20px Arial';
-            ctx.textAlign = 'center';
-            ctx.textBaseline = 'middle';
+            const time = Date.now();
+
+            // Draw XP gems
             xpGems.forEach(gem => {
-                ctx.fillText('⭐', gem.x, gem.y);
+                drawPixelGem(ctx, gem.x, gem.y, gem.size, time);
             });
 
-            // Draw enemies (emojis)
-            ctx.font = '24px Arial';
+            // Draw enemies
             enemies.forEach(enemy => {
-                const size = enemy.size;
-                ctx.font = `${size}px Arial`;
-                ctx.fillText(enemy.emoji, enemy.x, enemy.y);
+                enemy.draw(ctx, enemy.x, enemy.y, enemy.size, time);
 
                 // Health bar
                 const barWidth = enemy.size * 1.5;
@@ -1204,32 +1311,32 @@
                 ctx.fillStyle = p.color;
                 ctx.globalAlpha = p.life / p.maxLife;
                 ctx.fillRect(p.x - p.size/2, p.y - p.size/2, p.size, p.size);
-                ctx.globalAlpha = 1;
             });
+            ctx.globalAlpha = 1;
 
-            // Draw player (vampire emoji)
-            ctx.font = `${player.size * 2}px Arial`;
-            ctx.fillText('🧛', player.x, player.y);
+            // Draw player
+            drawPixelVampire(ctx, player.x, player.y, player.size * 2, time);
 
             // Draw meme death effects
-            ctx.font = '16px "Press Start 2P", cursive';
+            ctx.font = '12px "Press Start 2P", cursive';
             ctx.fillStyle = '#ff3333';
             ctx.textAlign = 'center';
+            ctx.shadowColor = '#ff0000';
+            ctx.shadowBlur = 5;
             memeEffects.forEach(m => {
                 ctx.globalAlpha = m.life / m.maxLife;
                 ctx.fillText(m.text, m.x, m.y);
-                ctx.globalAlpha = 1;
             });
+            ctx.globalAlpha = 1;
+            ctx.shadowBlur = 0;
         }
 
         function spawnEnemy() {
             if (!gameRunning || gamePaused) return;
 
-            // Increase difficulty over time
             const elapsed = (Date.now() - gameStartTime) / 1000;
             const difficultyMod = Math.min(3, 1 + elapsed / 60);
 
-            // Choose enemy type based on time
             let type;
             const roll = Math.random();
             if (elapsed > 120 && roll < 0.1) type = 'demon';
@@ -1240,7 +1347,6 @@
 
             const enemyDef = ENEMY_TYPES[type];
 
-            // Spawn from edge
             const side = Math.floor(Math.random() * 4);
             let x, y;
             switch(side) {
@@ -1253,7 +1359,7 @@
             enemies.push({
                 x, y,
                 type,
-                emoji: enemyDef.emoji,
+                draw: enemyDef.draw,
                 size: enemyDef.size,
                 speed: enemyDef.speed * difficultyMod,
                 health: enemyDef.health * difficultyMod,
@@ -1266,7 +1372,6 @@
         function autoAttack() {
             if (!gameRunning || gamePaused) return;
 
-            // Find nearest enemy in range
             let nearestEnemy = null;
             let nearestDist = Infinity;
 
@@ -1313,12 +1418,10 @@
             player.xpToNext = Math.floor(CONFIG.XP_BASE * Math.pow(CONFIG.XP_MULTIPLIER, player.level - 1));
             audio.playLevelUp();
 
-            // Show skill selection
             const modal = document.getElementById('levelUpModal');
             const options = document.getElementById('skillOptions');
             options.innerHTML = '';
 
-            // Pick 3 random skills
             const shuffled = [...SKILLS].sort(() => Math.random() - 0.5);
             const selected = shuffled.slice(0, 3);
 
@@ -1326,7 +1429,6 @@
                 const btn = document.createElement('button');
                 btn.className = 'skill-btn';
                 btn.innerHTML = `
-                    <span class="skill-emoji">${skill.emoji}</span>
                     <div class="skill-info">
                         <div class="skill-name">${skill.name}</div>
                         <div class="skill-desc">${skill.desc}</div>
@@ -1353,7 +1455,6 @@
             document.getElementById('levelUpModal').style.display = 'none';
             gamePaused = false;
 
-            // Update attack interval if attack speed changed
             if (skill.stat === 'attackSpeed') {
                 clearInterval(autoAttackInterval);
                 autoAttackInterval = setInterval(autoAttack, player.attackSpeed);
@@ -1377,49 +1478,19 @@
         }
 
         function updateHUD() {
-            // Health
             const healthPercent = (player.health / player.maxHealth) * 100;
             document.getElementById('healthFill').style.width = healthPercent + '%';
             document.getElementById('healthText').textContent = `${Math.floor(player.health)}/${player.maxHealth}`;
 
-            // XP
             const xpPercent = (player.xp / player.xpToNext) * 100;
             document.getElementById('xpFill').style.width = xpPercent + '%';
             document.getElementById('xpText').textContent = `${player.xp}/${player.xpToNext}`;
 
-            // Level
             document.getElementById('levelValue').textContent = player.level;
-
-            // Kills
             document.getElementById('killCount').textContent = kills;
-
-            // Time
-            const elapsed = Math.floor((Date.now() - gameStartTime) / 1000);
-            const minutes = Math.floor(elapsed / 60);
-            const seconds = elapsed % 60;
-            document.getElementById('gameTime').textContent = `${minutes}:${seconds.toString().padStart(2, '0')}`;
         }
 
-        // Audio control functions
-        function toggleMute() {
-            const muted = audio.toggleMute();
-            const btn = document.getElementById('muteBtn');
-            if (muted) {
-                btn.classList.add('muted');
-                btn.textContent = 'UNMUTE';
-            } else {
-                btn.classList.remove('muted');
-                btn.textContent = 'SOUND';
-            }
-        }
-
-        function setVolume(value) {
-            audio.setVolume(value / 100);
-        }
-
-        // Initialize game
         init();
-        autoAttackInterval = setInterval(autoAttack, player.attackSpeed);
     </script>
 </body>
 </html>

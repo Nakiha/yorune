@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-    <title>Meme Platformer - Emoji Troll Edition</title>
+    <title>Meme Platformer - Pixel Edition</title>
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap');
 
@@ -120,9 +120,12 @@
             box-shadow: 0 0 40px rgba(155, 77, 255, 0.5);
         }
 
-        .modal-emoji {
-            font-size: 48px;
+        .modal-pixel {
             margin-bottom: 20px;
+        }
+
+        .modal-pixel canvas {
+            image-rendering: pixelated;
         }
 
         .modal-title {
@@ -197,9 +200,12 @@
             text-align: center;
         }
 
-        .splash-emoji {
-            font-size: 64px;
+        .splash-pixel {
             margin-bottom: 20px;
+        }
+
+        .splash-pixel canvas {
+            image-rendering: pixelated;
         }
 
         .splash-title {
@@ -272,9 +278,12 @@
             z-index: 200;
         }
 
-        .start-emoji {
-            font-size: 64px;
+        .start-pixel {
             margin-bottom: 20px;
+        }
+
+        .start-pixel canvas {
+            image-rendering: pixelated;
         }
 
         .start-title {
@@ -430,23 +439,23 @@
     <!-- Click to Start Splash Screen -->
     <div id="clickSplash">
         <div class="splash-content">
-            <div class="splash-emoji">😐</div>
-            <h1 class="splash-title">MEME PLATFORMER</h1>
-            <p class="splash-subtitle">- EMOJI TROLL EDITION -</p>
+            <div class="splash-pixel"><canvas id="splashPixelCanvas" width="32" height="32" style="width: 64px; height: 64px;"></canvas></div>
+            <h1 class="splash-title">PIXEL PLATFORMER</h1>
+            <p class="splash-subtitle">- PIXEL EDITION -</p>
             <button class="splash-btn" id="splashStartBtn">CLICK TO START</button>
             <div class="splash-hint">Click anywhere to begin</div>
         </div>
     </div>
 
     <div id="startScreen">
-        <div class="start-emoji">😐➡️😱➡️💀</div>
-        <h1 class="start-title">MEME PLATFORMER</h1>
-        <p class="start-subtitle">- EMOJI TROLL EDITION -</p>
+        <div class="start-pixel"><canvas id="startPixelCanvas" width="96" height="32" style="width: 192px; height: 64px;"></canvas></div>
+        <h1 class="start-title">PIXEL PLATFORMER</h1>
+        <p class="start-subtitle">- PIXEL EDITION -</p>
         <button class="start-btn" onclick="startGame()">START GAME</button>
         <div class="controls-info">
             A/D or Arrow Keys - MOVE<br>
             W/Space/Up - JUMP<br>
-            Reach the 🏁 Flag to Complete Level
+            Reach the Flag to Complete Level
         </div>
         <p class="warning-text">WARNING: Nothing is what it seems...</p>
     </div>
@@ -455,15 +464,15 @@
         <canvas id="gameCanvas"></canvas>
         <div id="hud">
             <div class="hud-item death-count">
-                <span class="hud-label">💀 DEATHS:</span>
+                <span class="hud-label">DEATHS:</span>
                 <span class="hud-value" id="deathCount">0</span>
             </div>
             <div class="hud-item">
-                <span class="hud-label">📍 LEVEL:</span>
+                <span class="hud-label">LEVEL:</span>
                 <span class="hud-value" id="currentLevel">1/3</span>
             </div>
             <div class="hud-item">
-                <span class="hud-label">💎 STARS:</span>
+                <span class="hud-label">STARS:</span>
                 <span class="hud-value" id="starCount">0</span>
             </div>
         </div>
@@ -476,23 +485,23 @@
 
     <div id="winModal" class="modal">
         <div class="modal-content">
-            <div class="modal-emoji">🏆</div>
+            <div class="modal-pixel"><canvas id="trophyCanvas" width="32" height="32" style="width: 64px; height: 64px;"></canvas></div>
             <h2 class="modal-title win">VICTORY!</h2>
             <div class="modal-stats">
                 <p class="modal-stat">Total Deaths: <span id="finalDeaths">0</span></p>
                 <p class="modal-stat">Stars Collected: <span id="finalStars">0</span></p>
-                <p class="modal-stat">You are a true meme warrior! 😎</p>
+                <p class="modal-stat">You are a true pixel warrior!</p>
             </div>
-            <button class="modal-btn" onclick="restartGame()">🔄 PLAY AGAIN</button>
+            <button class="modal-btn" onclick="restartGame()">PLAY AGAIN</button>
         </div>
     </div>
 
     <div id="levelModal" class="modal">
         <div class="modal-content">
-            <div class="modal-emoji">🏁</div>
+            <div class="modal-pixel"><canvas id="flagModalCanvas" width="32" height="32" style="width: 64px; height: 64px;"></canvas></div>
             <h2 class="modal-title" style="color: var(--accent-green);">LEVEL COMPLETE!</h2>
             <p style="color: var(--text-secondary); font-size: 10px; margin: 20px 0;">Deaths so far: <span id="levelDeaths">0</span></p>
-            <button class="modal-btn" onclick="nextLevel()">➡️ NEXT LEVEL</button>
+            <button class="modal-btn" onclick="nextLevel()">NEXT LEVEL</button>
         </div>
     </div>
 
@@ -840,6 +849,260 @@
 
         const keys = {};
 
+        // ============ PIXEL DRAWING FUNCTIONS ============
+        function drawPixelRect(ctx, x, y, w, h) {
+            ctx.fillRect(Math.floor(x), Math.floor(y), Math.floor(w), Math.floor(h));
+        }
+
+        // Pixel Player - Normal state (cyan shirt)
+        function drawPixelPlayerNormal(ctx, x, y, size) {
+            const p = size / 16;
+            ctx.save();
+            ctx.translate(x - size/2, y - size/2);
+
+            // Body (cyan shirt)
+            ctx.fillStyle = '#00f5ff';
+            drawPixelRect(ctx, 4*p, 6*p, 8*p, 8*p);
+
+            // Head (skin)
+            ctx.fillStyle = '#ffcc99';
+            drawPixelRect(ctx, 5*p, 1*p, 6*p, 6*p);
+
+            // Hair (dark)
+            ctx.fillStyle = '#333333';
+            drawPixelRect(ctx, 5*p, 0, 6*p, 2*p);
+            drawPixelRect(ctx, 4*p, 1*p, 1*p, 2*p);
+            drawPixelRect(ctx, 11*p, 1*p, 1*p, 2*p);
+
+            // Eyes
+            ctx.fillStyle = '#000000';
+            drawPixelRect(ctx, 6*p, 3*p, 2*p, 2*p);
+            drawPixelRect(ctx, 9*p, 3*p, 2*p, 2*p);
+
+            // Legs (dark pants)
+            ctx.fillStyle = '#2255aa';
+            drawPixelRect(ctx, 5*p, 14*p, 3*p, 2*p);
+            drawPixelRect(ctx, 8*p, 14*p, 3*p, 2*p);
+
+            ctx.restore();
+        }
+
+        // Pixel Player - Scared state
+        function drawPixelPlayerScared(ctx, x, y, size) {
+            const p = size / 16;
+            ctx.save();
+            ctx.translate(x - size/2, y - size/2);
+
+            // Body (yellow shirt - scared)
+            ctx.fillStyle = '#ffff00';
+            drawPixelRect(ctx, 4*p, 6*p, 8*p, 8*p);
+
+            // Head (pale skin)
+            ctx.fillStyle = '#ffeecc';
+            drawPixelRect(ctx, 5*p, 1*p, 6*p, 6*p);
+
+            // Hair (dark)
+            ctx.fillStyle = '#333333';
+            drawPixelRect(ctx, 5*p, 0, 6*p, 2*p);
+            drawPixelRect(ctx, 4*p, 1*p, 1*p, 2*p);
+            drawPixelRect(ctx, 11*p, 1*p, 1*p, 2*p);
+
+            // Scared eyes (wide)
+            ctx.fillStyle = '#ffffff';
+            drawPixelRect(ctx, 5*p, 2*p, 3*p, 3*p);
+            drawPixelRect(ctx, 9*p, 2*p, 3*p, 3*p);
+            ctx.fillStyle = '#000000';
+            drawPixelRect(ctx, 6*p, 3*p, 2*p, 2*p);
+            drawPixelRect(ctx, 9*p, 3*p, 2*p, 2*p);
+
+            // Open mouth (scared)
+            ctx.fillStyle = '#000000';
+            drawPixelRect(ctx, 7*p, 5*p, 2*p, 2*p);
+
+            // Legs (shaking)
+            ctx.fillStyle = '#2255aa';
+            drawPixelRect(ctx, 4*p, 14*p, 3*p, 2*p);
+            drawPixelRect(ctx, 9*p, 14*p, 3*p, 2*p);
+
+            ctx.restore();
+        }
+
+        // Pixel Player - Dead state
+        function drawPixelPlayerDead(ctx, x, y, size) {
+            const p = size / 16;
+            ctx.save();
+            ctx.translate(x - size/2, y - size/2);
+
+            // Body (red - dead)
+            ctx.fillStyle = '#ff3333';
+            drawPixelRect(ctx, 4*p, 6*p, 8*p, 8*p);
+
+            // Head (pale)
+            ctx.fillStyle = '#ddddbb';
+            drawPixelRect(ctx, 5*p, 1*p, 6*p, 6*p);
+
+            // Hair
+            ctx.fillStyle = '#333333';
+            drawPixelRect(ctx, 5*p, 0, 6*p, 2*p);
+            drawPixelRect(ctx, 4*p, 1*p, 1*p, 2*p);
+            drawPixelRect(ctx, 11*p, 1*p, 1*p, 2*p);
+
+            // X eyes (dead)
+            ctx.fillStyle = '#000000';
+            drawPixelRect(ctx, 5*p, 3*p, 1*p, 1*p);
+            drawPixelRect(ctx, 7*p, 3*p, 1*p, 1*p);
+            drawPixelRect(ctx, 6*p, 4*p, 1*p, 1*p);
+            drawPixelRect(ctx, 9*p, 3*p, 1*p, 1*p);
+            drawPixelRect(ctx, 11*p, 3*p, 1*p, 1*p);
+            drawPixelRect(ctx, 10*p, 4*p, 1*p, 1*p);
+
+            // Tongue out
+            ctx.fillStyle = '#ff6666';
+            drawPixelRect(ctx, 7*p, 5*p, 2*p, 2*p);
+
+            // Legs
+            ctx.fillStyle = '#2255aa';
+            drawPixelRect(ctx, 5*p, 14*p, 3*p, 2*p);
+            drawPixelRect(ctx, 8*p, 14*p, 3*p, 2*p);
+
+            ctx.restore();
+        }
+
+        // Draw player based on state
+        function drawPixelPlayer(ctx, x, y, size, state) {
+            switch(state) {
+                case 'scared': drawPixelPlayerScared(ctx, x, y, size); break;
+                case 'dead': drawPixelPlayerDead(ctx, x, y, size); break;
+                default: drawPixelPlayerNormal(ctx, x, y, size);
+            }
+        }
+
+        // Pixel Flag
+        function drawPixelFlag(ctx, x, y, size, time) {
+            const p = size / 16;
+            const waveOffset = Math.sin(time * 0.005) * p;
+            ctx.save();
+            ctx.translate(x - size/2, y - size/2);
+
+            // Pole
+            ctx.fillStyle = '#888888';
+            drawPixelRect(ctx, 1*p, 0, 2*p, 16*p);
+
+            // Flag (green with wave effect)
+            ctx.fillStyle = '#33ff66';
+            drawPixelRect(ctx, 3*p, 1*p + waveOffset, 10*p, 6*p);
+
+            // Flag detail
+            ctx.fillStyle = '#22cc44';
+            drawPixelRect(ctx, 5*p, 2*p + waveOffset, 2*p, 2*p);
+            drawPixelRect(ctx, 9*p, 3*p + waveOffset, 2*p, 2*p);
+
+            // Pole top
+            ctx.fillStyle = '#ffcc00';
+            drawPixelRect(ctx, 0, 0, 4*p, 2*p);
+
+            ctx.restore();
+        }
+
+        // Pixel Star
+        function drawPixelStar(ctx, x, y, size, time) {
+            const p = size / 8;
+            const pulse = Math.sin(time * 0.008) * 0.2 + 1;
+            ctx.save();
+            ctx.translate(x, y);
+            ctx.scale(pulse, pulse);
+            ctx.translate(-size/2, -size/2);
+
+            ctx.fillStyle = '#ffff00';
+            ctx.shadowColor = '#ffff00';
+            ctx.shadowBlur = 5;
+
+            // Star shape
+            drawPixelRect(ctx, 3*p, 0, 2*p, 2*p);
+            drawPixelRect(ctx, 2*p, 2*p, 4*p, 1*p);
+            drawPixelRect(ctx, 1*p, 3*p, 6*p, 2*p);
+            drawPixelRect(ctx, 0, 4*p, 8*p, 1*p);
+            drawPixelRect(ctx, 1*p, 5*p, 6*p, 1*p);
+            drawPixelRect(ctx, 2*p, 6*p, 4*p, 1*p);
+            drawPixelRect(ctx, 3*p, 7*p, 2*p, 1*p);
+
+            // Highlight
+            ctx.fillStyle = '#ffffff';
+            ctx.shadowBlur = 0;
+            drawPixelRect(ctx, 3*p, 2*p, 1*p, 1*p);
+
+            ctx.restore();
+        }
+
+        // Pixel Trophy
+        function drawPixelTrophy(ctx, x, y, size) {
+            const p = size / 16;
+            ctx.save();
+            ctx.translate(x - size/2, y - size/2);
+
+            // Cup body (gold)
+            ctx.fillStyle = '#ffcc00';
+            drawPixelRect(ctx, 3*p, 1*p, 10*p, 10*p);
+            drawPixelRect(ctx, 1*p, 3*p, 14*p, 6*p);
+
+            // Cup shine
+            ctx.fillStyle = '#ffee66';
+            drawPixelRect(ctx, 4*p, 2*p, 3*p, 4*p);
+
+            // Cup dark
+            ctx.fillStyle = '#cc9900';
+            drawPixelRect(ctx, 11*p, 5*p, 2*p, 4*p);
+
+            // Handles
+            ctx.fillStyle = '#ffcc00';
+            drawPixelRect(ctx, 0, 4*p, 2*p, 4*p);
+            drawPixelRect(ctx, 14*p, 4*p, 2*p, 4*p);
+
+            // Base
+            ctx.fillStyle = '#cc9900';
+            drawPixelRect(ctx, 5*p, 11*p, 6*p, 2*p);
+            drawPixelRect(ctx, 4*p, 13*p, 8*p, 3*p);
+
+            ctx.restore();
+        }
+
+        // Initialize splash/start screen pixel art
+        function initPixelArt() {
+            // Splash screen player (normal)
+            const splashCanvas = document.getElementById('splashPixelCanvas');
+            if (splashCanvas) {
+                const sctx = splashCanvas.getContext('2d');
+                sctx.imageSmoothingEnabled = false;
+                drawPixelPlayerNormal(sctx, 16, 16, 28);
+            }
+
+            // Start screen player sequence (normal -> scared -> dead)
+            const startCanvas = document.getElementById('startPixelCanvas');
+            if (startCanvas) {
+                const sctx = startCanvas.getContext('2d');
+                sctx.imageSmoothingEnabled = false;
+                drawPixelPlayerNormal(sctx, 16, 16, 24);
+                drawPixelPlayerScared(sctx, 48, 16, 24);
+                drawPixelPlayerDead(sctx, 80, 16, 24);
+            }
+
+            // Trophy canvas
+            const trophyCanvas = document.getElementById('trophyCanvas');
+            if (trophyCanvas) {
+                const tctx = trophyCanvas.getContext('2d');
+                tctx.imageSmoothingEnabled = false;
+                drawPixelTrophy(tctx, 16, 16, 28);
+            }
+
+            // Flag modal canvas
+            const flagCanvas = document.getElementById('flagModalCanvas');
+            if (flagCanvas) {
+                const fctx = flagCanvas.getContext('2d');
+                fctx.imageSmoothingEnabled = false;
+                drawPixelFlag(fctx, 16, 16, 28, 0);
+            }
+        }
+
         // Level definitions
         const LEVELS = [
             // Level 1
@@ -935,6 +1198,10 @@
             ctx = canvas.getContext('2d');
             canvas.width = CONFIG.CANVAS_WIDTH;
             canvas.height = CONFIG.CANVAS_HEIGHT;
+            ctx.imageSmoothingEnabled = false;
+
+            // Initialize pixel art for UI elements
+            initPixelArt();
 
             document.addEventListener('keydown', (e) => {
                 keys[e.key.toLowerCase()] = true;
@@ -1160,13 +1427,7 @@
             }
         }
 
-        function getPlayerEmoji() {
-            switch (player.state) {
-                case 'scared': return '😱';
-                case 'dead': return '💀';
-                default: return '😐';
-            }
-        }
+        // getPlayerEmoji function removed - using drawPixelPlayer instead
 
         function checkCollisions() {
             const allPlatforms = [...levelData.platforms];
@@ -1488,24 +1749,20 @@
                 }
             });
 
-            // Draw stars (collectibles)
-            ctx.font = '24px Arial';
-            ctx.textAlign = 'center';
-            ctx.textBaseline = 'middle';
+            // Draw stars (collectibles) - pixel art
             levelData.stars.forEach(star => {
                 if (!star.collected) {
                     const sx = star.x * CONFIG.TILE_SIZE + CONFIG.TILE_SIZE / 2;
                     const sy = star.y * CONFIG.TILE_SIZE + CONFIG.TILE_SIZE / 2;
-                    ctx.fillText('⭐', sx, sy);
+                    drawPixelStar(ctx, sx, sy, 16, time);
                 }
             });
 
-            // Draw goal (flag emoji)
+            // Draw goal (pixel flag)
             const goal = levelData.goal;
             const gx = goal.x * CONFIG.TILE_SIZE + CONFIG.TILE_SIZE / 2;
             const gy = goal.y * CONFIG.TILE_SIZE + CONFIG.TILE_SIZE / 2;
-            ctx.font = '32px Arial';
-            ctx.fillText('🏁', gx, gy);
+            drawPixelFlag(ctx, gx, gy, 32, time);
 
             // Draw particles
             particles.forEach(p => {
@@ -1515,13 +1772,9 @@
             });
             ctx.globalAlpha = 1;
 
-            // Draw player (emoji based on state)
+            // Draw player (pixel art based on state)
             if (player.alive) {
-                ctx.font = `${player.size}px Arial`;
-                ctx.textAlign = 'center';
-                ctx.textBaseline = 'middle';
-                const emoji = getPlayerEmoji();
-                ctx.fillText(emoji, player.x + player.size / 2, player.y + player.size / 2);
+                drawPixelPlayer(ctx, player.x + player.size / 2, player.y + player.size / 2, player.size, player.state);
             }
 
             // Draw meme texts
