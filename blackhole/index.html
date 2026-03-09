@@ -29,6 +29,7 @@
             font-size: 12px;
             z-index: 100;
         }
+        #controls label { margin-right: 20px; }
         #debug {
             position: absolute;
             top: 20px;
@@ -38,8 +39,8 @@
             font-size: 11px;
             background: rgba(0,0,0,0.7);
             padding: 10px;
+            border-radius: 5px;
             z-index: 100;
-            max-width: 300px;
         }
     </style>
 </head>
@@ -49,305 +50,338 @@
         <div>Drag to rotate | Scroll to zoom</div>
     </div>
     <div id="controls">
-        <label>Brightness: <input type="range" id="brightness" min="0.5" max="3" step="0.1" value="2.0"></label>
-        <label style="margin-left:20px">Lensing: <input type="range" id="lensing" min="0.5" max="3" step="0.1" value="1.5"></label>
+        <label>Brightness: <input type="range" id="brightness" min="0.5" max="3" step="0.1" value="1.5"></label>
+        <label>Lensing: <input type="range" id="lensing" min="0.5" max="3" step="0.1" value="1.5"></label>
     </div>
     <div id="debug">Loading...</div>
 
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
 
-    <script id="vertexShader" type="x-shader/x-vertex">
-        void main() {
-            gl_Position = vec4(position, 1.0);
-        }
-    </script>
-
-    <script id="fragmentShader" type="x-shader/x-fragment">
-        precision highp float;
-        uniform float uTime;
-        uniform vec2 uResolution;
-        uniform float uBrightness;
-        uniform float uLensing;
-        uniform vec3 uCamPos;
-
-        // Black hole parameters
-        const float RS = 1.0;           // Schwarzschild radius
-        const float ISCO = 3.0;         // Innermost stable orbit
-        const float DISK_OUTER = 8.0;   // Disk outer radius
-
-        // Hash function
-        float hash(vec2 p) {
-            return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453);
-        }
-
-        // Noise function
-        float noise(vec2 p) {
-            vec2 i = floor(p);
-            vec2 f = fract(p);
-            f = f * f * (3.0 - 2.0 * f);
-            float a = hash(i);
-            float b = hash(i + vec2(1.0, 0.0));
-            float c = hash(i + vec2(0.0, 1.0));
-            float d = hash(i + vec2(1.0, 1.0));
-            return mix(mix(a, b, f.x), mix(c, d, f.x), f.y);
-        }
-
-        // Temperature to RGB (blackbody approximation)
-        vec3 tempToColor(float t) {
-            t = clamp(t, 1000.0, 40000.0) / 100.0;
-            vec3 col;
-
-            // Red channel
-            if (t <= 66.0) {
-                col.r = 1.0;
-            } else {
-                col.r = 1.292936 * pow(t - 60.0, -0.1332);
-            }
-
-            // Green channel
-            if (t <= 66.0) {
-                col.g = max(0.0, 0.390082 * log(max(1.0, t)) - 0.631841);
-            } else {
-                col.g = 1.129891 * pow(t - 60.0, -0.0755);
-            }
-
-            // Blue channel
-            if (t >= 66.0) {
-                col.b = 1.0;
-            } else if (t <= 19.0) {
-                col.b = 0.0;
-            } else {
-                col.b = max(0.0, 0.543207 * log(max(1.0, t - 10.0)) - 0.196564);
-            }
-
-            return clamp(col, 0.0, 1.0);
-        }
-
-        void main() {
-            // Normalized pixel coordinates
-            vec2 uv = (gl_FragCoord.xy - 0.5 * uResolution) / uResolution.y;
-
-            // Camera setup
-            vec3 ro = uCamPos;
-            vec3 lookAt = vec3(0.0);
-
-            // Camera coordinate system
-            vec3 forward = normalize(lookAt - ro);
-            vec3 right = normalize(cross(vec3(0.0, 1.0, 0.0), forward));
-            vec3 up = cross(forward, right);
-
-            // Ray direction
-            vec3 rd = normalize(forward + uv.x * right + uv.y * up);
-
-            // Initialize color
-            vec3 color = vec3(0.0);
-
-            // Ray marching parameters
-            float t = 0.0;
-            vec3 pos = ro;
-            float accum = 0.0;
-
-            for (int i = 0; i < 128; i++) {
-                pos = ro + rd * t;
-                float r = length(pos);
-
-                // Hit event horizon - pure black
-                if (r < RS) {
-                    color = vec3(0.0);
-                    accum = 1.0;
-                    break;
-                }
-
-                // Too far - background
-                if (r > 50.0) break;
-
-                // Adaptive step size
-                float stepSize = 0.05 + 0.15 * smoothstep(RS, DISK_OUTER * 2.0, r);
-
-                // Gravitational lensing - bend ray toward center
-                if (r < DISK_OUTER * 2.0) {
-                    vec3 toCenter = -normalize(pos);
-                    float bendStrength = uLensing * 1.5 * RS / (r * r);
-                    rd = normalize(rd + toCenter * bendStrength * stepSize);
-                }
-
-                // Sample accretion disk
-                float diskHeight = 0.2;
-                float diskDist = abs(pos.y);
-
-                if (diskDist < diskHeight && r > ISCO && r < DISK_OUTER) {
-                    // Distance from disk center plane
-                    float heightFade = 1.0 - diskDist / diskHeight;
-
-                    // Radial fade
-                    float innerFade = smoothstep(ISCO, ISCO + 1.0, r);
-                    float outerFade = 1.0 - smoothstep(DISK_OUTER - 1.0, DISK_OUTER, r);
-
-                    // Temperature gradient (hotter near ISCO)
-                    float tempFactor = pow(ISCO / r, 0.75);
-                    float temp = mix(3000.0, 20000.0, tempFactor);
-
-                    // Orbital velocity direction (tangent to circle in disk plane)
-                    vec3 velocity = normalize(vec3(-pos.z, 0.0, pos.x));
-                    float vDotN = dot(velocity, rd);
-
-                    // Doppler beaming (intensity boost on approaching side)
-                    float doppler = pow(max(0.1, 1.0 + 1.5 * vDotN), 3.0);
-
-                    // Gravitational redshift
-                    float redshift = sqrt(max(0.1, 1.0 - RS / r));
-
-                    // Turbulence with rotation
-                    float angle = atan(pos.z, pos.x);
-                    float turbAngle = angle + uTime * 0.1 / max(0.5, r);
-                    float turb = noise(vec2(r * 2.0, turbAngle * 3.0));
-                    temp *= 0.8 + 0.4 * turb;
-
-                    // Combined intensity
-                    float intensity = tempFactor * doppler * redshift * heightFade * innerFade * outerFade;
-                    intensity *= 0.5 + 0.5 * turb;
-
-                    // Get color from temperature
-                    vec3 diskColor = tempToColor(temp);
-                    diskColor *= intensity * uBrightness * 0.15;
-
-                    // Accumulate with alpha blending
-                    float alpha = intensity * (1.0 - accum);
-                    color += diskColor * alpha;
-                    accum += alpha * 0.5;
-                }
-
-                t += stepSize;
-            }
-
-            // Background stars (only if not much accumulated)
-            if (accum < 0.1) {
-                vec3 starDir = rd;
-                float starHash = hash(floor(starDir.xy * 500.0 + starDir.z * 300.0));
-                if (starHash > 0.997) {
-                    color += vec3(0.8, 0.85, 1.0) * (starHash - 0.997) * 300.0;
-                }
-            }
-
-            // Tone mapping
-            color = color / (1.0 + color);
-
-            // Gamma correction
-            color = pow(color, vec3(0.4545));
-
-            gl_FragColor = vec4(color, 1.0);
-        }
-    </script>
-
     <script>
-        console.log('=== Gargantua Black Hole Initializing ===');
-
+        // ============================================
+        // GARGANTUA BLACK HOLE VISUALIZATION
+        // ============================================
+        
+        console.log('=== Gargantua Black Hole v2.0 ===');
+        
         let scene, camera, renderer, material;
-        let targetRotX = 0.3, targetRotY = 0;
         let rotX = 0.3, rotY = 0;
-        let zoom = 10;
+        let targetRotX = 0.3, targetRotY = 0;
+        let zoom = 12;
         let isDragging = false, lastX, lastY;
-
-        try {
-            init();
-            console.log('Init successful, starting animation');
-            animate();
-        } catch (e) {
-            console.error('Init failed:', e);
-            document.getElementById('debug').innerHTML = 'ERROR: ' + e.message;
-        }
-
+        
+        // Start
+        init();
+        
         function init() {
+            console.log('Initializing...');
+            
             // Scene
             scene = new THREE.Scene();
-
+            
             // Orthographic camera for fullscreen quad
             camera = new THREE.OrthographicCamera(-1, 1, 1, -1, 0, 1);
-
+            
             // Renderer
             renderer = new THREE.WebGLRenderer({ antialias: true });
             renderer.setSize(window.innerWidth, window.innerHeight);
             renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
             document.body.appendChild(renderer.domElement);
-            console.log('Renderer created:', window.innerWidth, 'x', window.innerHeight);
-
-            // Get shader source
-            const vsSource = document.getElementById('vertexShader').textContent;
-            const fsSource = document.getElementById('fragmentShader').textContent;
-            console.log('Vertex shader length:', vsSource.length);
-            console.log('Fragment shader length:', fsSource.length);
-
-            // Shader material
+            console.log('Renderer:', window.innerWidth, 'x', window.innerHeight);
+            
+            // Shader source
+            const vertexShader = `
+                void main() {
+                    gl_Position = vec4(position, 1.0);
+                }
+            `;
+            
+            const fragmentShader = `
+                precision highp float;
+                
+                uniform float uTime;
+                uniform vec2 uResolution;
+                uniform vec3 uCamPos;
+                uniform float uBrightness;
+                uniform float uLensing;
+                
+                // Constants
+                const float RS = 1.0;          // Schwarzschild radius
+                const float ISCO = 3.0;        // Innermost stable orbit
+                const float DISK_INNER = 2.5;  // Disk inner edge
+                const float DISK_OUTER = 8.0;  // Disk outer edge
+                const int MAX_STEPS = 100;
+                
+                // Hash functions for stars
+                float hash(vec3 p) {
+                    p = fract(p * 0.3183099 + 0.1);
+                    p *= 17.0;
+                    return fract(p.x * p.y * p.z * (p.x + p.y + p.z));
+                }
+                
+                float hash2(vec2 p) {
+                    return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453);
+                }
+                
+                // 3D Noise
+                float noise(vec3 p) {
+                    vec3 i = floor(p);
+                    vec3 f = fract(p);
+                    f = f * f * (3.0 - 2.0 * f);
+                    
+                    return mix(
+                        mix(mix(hash(i + vec3(0,0,0)), hash(i + vec3(1,0,0)), f.x),
+                            mix(hash(i + vec3(0,1,0)), hash(i + vec3(1,1,0)), f.x), f.y),
+                        mix(mix(hash(i + vec3(0,0,1)), hash(i + vec3(1,0,1)), f.x),
+                            mix(hash(i + vec3(0,1,1)), hash(i + vec3(1,1,1)), f.x), f.y),
+                        f.z
+                    );
+                }
+                
+                // Temperature to RGB (blackbody radiation)
+                vec3 tempToColor(float temp) {
+                    // Approximate blackbody color
+                    temp = clamp(temp, 1000.0, 40000.0);
+                    
+                    vec3 color;
+                    float t = temp / 100.0;
+                    
+                    // Red
+                    if (t <= 66.0) {
+                        color.r = 1.0;
+                    } else {
+                        color.r = 1.292936 * pow(t - 60.0, -0.1332);
+                    }
+                    
+                    // Green
+                    if (t <= 66.0) {
+                        color.g = max(0.0, 0.390082 * log(max(1.0, t)) - 0.631841);
+                    } else {
+                        color.g = 1.129891 * pow(t - 60.0, -0.0755);
+                    }
+                    
+                    // Blue
+                    if (t >= 66.0) {
+                        color.b = 1.0;
+                    } else if (t <= 19.0) {
+                        color.b = 0.0;
+                    } else {
+                        color.b = max(0.0, 0.543207 * log(max(1.0, t - 10.0)) - 0.196564);
+                    }
+                    
+                    return clamp(color, 0.0, 1.0);
+                }
+                
+                // Star field
+                vec3 stars(vec3 rd) {
+                    vec3 color = vec3(0.0);
+                    
+                    // Multiple star layers
+                    for (int i = 0; i < 3; i++) {
+                        vec3 p = rd * (100.0 + float(i) * 50.0);
+                        vec3 id = floor(p);
+                        vec3 f = fract(p) - 0.5;
+                        
+                        float h = hash(id + float(i) * 100.0);
+                        
+                        // Random star position within cell
+                        vec3 starPos = vec3(
+                            hash(id + vec3(1.0, 0.0, 0.0)) - 0.5,
+                            hash(id + vec3(0.0, 1.0, 0.0)) - 0.5,
+                            hash(id + vec3(0.0, 0.0, 1.0)) - 0.5
+                        );
+                        
+                        float d = length(f - starPos);
+                        
+                        // Only some cells have stars
+                        if (h > 0.92) {
+                            float brightness = hash(id * 2.0);
+                            float size = 0.01 + brightness * 0.02;
+                            float glow = size / (d * d + 0.001);
+                            
+                            // Star color variation (white to blue to yellow)
+                            vec3 starColor = mix(
+                                vec3(0.8, 0.85, 1.0),  // Blue-white
+                                vec3(1.0, 0.95, 0.8),   // Yellow-white
+                                hash(id * 3.0)
+                            );
+                            
+                            color += starColor * glow * brightness * 0.5;
+                        }
+                    }
+                    
+                    return color;
+                }
+                
+                void main() {
+                    // Normalized coordinates
+                    vec2 uv = (gl_FragCoord.xy - 0.5 * uResolution) / uResolution.y;
+                    
+                    // Camera setup
+                    vec3 ro = uCamPos;
+                    vec3 target = vec3(0.0);
+                    
+                    // Camera basis vectors
+                    vec3 forward = normalize(target - ro);
+                    vec3 right = normalize(cross(vec3(0.0, 1.0, 0.0), forward));
+                    vec3 up = cross(forward, right);
+                    
+                    // Ray direction
+                    vec3 rd = normalize(forward + uv.x * right + uv.y * up);
+                    
+                    // Initialize color
+                    vec3 color = vec3(0.0);
+                    float accum = 0.0;
+                    
+                    // Ray marching
+                    float t = 0.0;
+                    bool hitBlackHole = false;
+                    
+                    for (int i = 0; i < MAX_STEPS; i++) {
+                        vec3 pos = ro + rd * t;
+                        float r = length(pos);
+                        
+                        // Hit event horizon
+                        if (r < RS) {
+                            hitBlackHole = true;
+                            break;
+                        }
+                        
+                        // Too far, stop
+                        if (r > 30.0) break;
+                        
+                        // Step size (smaller near black hole)
+                        float stepSize = max(0.05, r * 0.05);
+                        
+                        // Gravitational lensing - bend light toward center
+                        if (r < DISK_OUTER * 2.0 && r > RS) {
+                            vec3 toCenter = -normalize(pos);
+                            float bendStrength = uLensing * RS * 2.0 / (r * r);
+                            rd = normalize(rd + toCenter * bendStrength * stepSize);
+                        }
+                        
+                        // Accretion disk sampling
+                        float diskDist = abs(pos.y);
+                        if (diskDist < 0.3 && r > DISK_INNER && r < DISK_OUTER) {
+                            // Height fade
+                            float heightFade = 1.0 - diskDist / 0.3;
+                            heightFade = pow(heightFade, 2.0);
+                            
+                            // Radial fade
+                            float innerFade = smoothstep(DISK_INNER, DISK_INNER + 1.0, r);
+                            float outerFade = 1.0 - smoothstep(DISK_OUTER - 1.0, DISK_OUTER, r);
+                            float radialFade = innerFade * outerFade;
+                            
+                            // Temperature (hotter near center)
+                            float tempFactor = pow(DISK_INNER / r, 0.75);
+                            float temp = mix(2000.0, 25000.0, tempFactor);
+                            
+                            // Doppler effect (orbital velocity)
+                            vec3 velocity = normalize(vec3(-pos.z, 0.0, pos.x));
+                            float vDotR = dot(velocity, rd);
+                            float doppler = pow(0.5 + 0.5 * vDotR, 2.0);
+                            
+                            // Gravitational redshift
+                            float redshift = sqrt(max(0.01, 1.0 - RS / r));
+                            
+                            // Turbulence / rotation
+                            float angle = atan(pos.z, pos.x);
+                            float turbAngle = angle + uTime * 0.2 / max(1.0, r - DISK_INNER);
+                            float turb = noise(vec3(r * 2.0, turbAngle * 3.0, uTime * 0.1));
+                            temp *= 0.8 + 0.4 * turb;
+                            
+                            // Intensity
+                            float intensity = heightFade * radialFade * doppler * redshift;
+                            intensity *= (0.5 + 0.5 * turb);
+                            intensity *= uBrightness * 0.1;
+                            
+                            // Disk color from temperature
+                            vec3 diskColor = tempToColor(temp) * intensity;
+                            
+                            // Accumulate
+                            float alpha = intensity * (1.0 - accum);
+                            color += diskColor * alpha;
+                            accum += alpha * 0.3;
+                        }
+                        
+                        // Photon sphere glow (r ≈ 1.5 RS)
+                        if (r > 1.3 && r < 2.0) {
+                            float glowIntensity = exp(-pow((r - 1.5) * 5.0, 2.0));
+                            glowIntensity *= 0.1 * uBrightness;
+                            color += vec3(1.0, 0.8, 0.5) * glowIntensity * (1.0 - accum);
+                            accum += glowIntensity * 0.2;
+                        }
+                        
+                        t += stepSize;
+                    }
+                    
+                    // Add stars (if we didn't hit black hole)
+                    if (!hitBlackHole && accum < 0.8) {
+                        vec3 starColor = stars(rd);
+                        color += starColor * (1.0 - accum);
+                    }
+                    
+                    // Event horizon glow ring (Einstein ring)
+                    float screenR = length(uv);
+                    float ringDist = abs(screenR - 0.15);
+                    float ringGlow = exp(-ringDist * 30.0) * 0.3 * uBrightness;
+                    color += vec3(1.0, 0.7, 0.4) * ringGlow;
+                    
+                    // Tone mapping
+                    color = color / (1.0 + color);
+                    
+                    // Gamma correction
+                    color = pow(color, vec3(0.4545));
+                    
+                    gl_FragColor = vec4(color, 1.0);
+                }
+            `;
+            
+            // Create material
             material = new THREE.ShaderMaterial({
-                vertexShader: vsSource,
-                fragmentShader: fsSource,
+                vertexShader: vertexShader,
+                fragmentShader: fragmentShader,
                 uniforms: {
                     uTime: { value: 0.0 },
                     uResolution: { value: new THREE.Vector2(window.innerWidth, window.innerHeight) },
-                    uBrightness: { value: 2.0 },
-                    uLensing: { value: 1.5 },
-                    uCamPos: { value: new THREE.Vector3(0, 3, 10) }
+                    uCamPos: { value: new THREE.Vector3(0, 3, zoom) },
+                    uBrightness: { value: 1.5 },
+                    uLensing: { value: 1.5 }
                 }
             });
-
-            // Check for shader compile errors
-            const gl = renderer.getContext();
             
-            // Add error callback for shader compilation
-            material.onBeforeCompile = (shader) => {
-                console.log('Shader onBeforeCompile called');
-            };
+            console.log('Material created');
             
-            // Force a first render to trigger shader compilation
-            renderer.render(scene, camera);
-            
-            // Check WebGL errors
-            const err = gl.getError();
-            if (err !== gl.NO_ERROR) {
-                console.error('WebGL error:', err);
-                document.getElementById('debug').innerHTML = 'WebGL Error: ' + err;
-            } else {
-                console.log('First render complete, checking shader...');
-                
-                // Try to get shader info
-                const program = gl.getParameter(gl.CURRENT_PROGRAM);
-                if (program) {
-                    const linkStatus = gl.getProgramParameter(program, gl.LINK_STATUS);
-                    console.log('Program link status:', linkStatus);
-                    if (!linkStatus) {
-                        const info = gl.getProgramInfoLog(program);
-                        console.error('Program info log:', info);
-                        document.getElementById('debug').innerHTML = 'Link Error: ' + info;
-                    } else {
-                        console.log('Shader program linked successfully!');
-                    }
-                } else {
-                    console.log('No current program (may be normal after first render)');
-                }
-            }
-
             // Fullscreen quad
             const geometry = new THREE.PlaneGeometry(2, 2);
             const quad = new THREE.Mesh(geometry, material);
             scene.add(quad);
-
+            
+            console.log('Scene ready');
+            
             // Events
             window.addEventListener('resize', onResize);
-            document.addEventListener('mousedown', (e) => { isDragging = true; lastX = e.clientX; lastY = e.clientY; });
+            document.addEventListener('mousedown', (e) => { 
+                isDragging = true; 
+                lastX = e.clientX; 
+                lastY = e.clientY; 
+            });
             document.addEventListener('mousemove', onMouseMove);
             document.addEventListener('mouseup', () => { isDragging = false; });
             document.addEventListener('wheel', onWheel, { passive: true });
-
+            
             document.getElementById('brightness').addEventListener('input', (e) => {
                 material.uniforms.uBrightness.value = parseFloat(e.target.value);
             });
             document.getElementById('lensing').addEventListener('input', (e) => {
                 material.uniforms.uLensing.value = parseFloat(e.target.value);
             });
-
+            
             updateDebug();
+            console.log('Starting animation...');
+            animate();
         }
-
+        
         function onMouseMove(e) {
             if (!isDragging) return;
             targetRotY += (e.clientX - lastX) * 0.005;
@@ -356,49 +390,48 @@
             lastX = e.clientX;
             lastY = e.clientY;
         }
-
+        
         function onWheel(e) {
             zoom += e.deltaY * 0.01;
             zoom = Math.max(5, Math.min(25, zoom));
         }
-
+        
         function onResize() {
             renderer.setSize(window.innerWidth, window.innerHeight);
             material.uniforms.uResolution.value.set(window.innerWidth, window.innerHeight);
-            console.log('Resized:', window.innerWidth, 'x', window.innerHeight);
         }
-
+        
         function updateDebug() {
             const cam = material.uniforms.uCamPos.value;
-            document.getElementById('debug').innerHTML =
-                'Cam: (' + cam.x.toFixed(1) + ', ' + cam.y.toFixed(1) + ', ' + cam.z.toFixed(1) + ')<br>' +
+            document.getElementById('debug').innerHTML = 
+                'Camera: (' + cam.x.toFixed(1) + ', ' + cam.y.toFixed(1) + ', ' + cam.z.toFixed(1) + ')<br>' +
                 'Zoom: ' + zoom.toFixed(1) + '<br>' +
                 'Brightness: ' + material.uniforms.uBrightness.value.toFixed(1) + '<br>' +
                 'Lensing: ' + material.uniforms.uLensing.value.toFixed(1);
         }
-
+        
         function animate() {
             requestAnimationFrame(animate);
-
+            
             // Update time
             material.uniforms.uTime.value += 0.016;
-
+            
             // Smooth rotation
             rotX += (targetRotX - rotX) * 0.1;
             rotY += (targetRotY - rotY) * 0.1;
-
-            // Calculate camera position
+            
+            // Calculate camera position (spherical)
             const camX = Math.sin(rotY) * Math.cos(rotX) * zoom;
             const camY = Math.sin(rotX) * zoom;
             const camZ = Math.cos(rotY) * Math.cos(rotX) * zoom;
-
+            
             material.uniforms.uCamPos.value.set(camX, camY, camZ);
-
-            // Update debug every 30 frames
-            if (Math.floor(material.uniforms.uTime.value * 60) % 30 === 0) {
+            
+            // Update debug occasionally
+            if (Math.floor(material.uniforms.uTime.value * 10) % 10 === 0) {
                 updateDebug();
             }
-
+            
             renderer.render(scene, camera);
         }
     </script>
