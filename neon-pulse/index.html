@@ -1,0 +1,881 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>NEON PULSE - 霓虹脉冲</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        body {
+            background: #0a0a0f;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            font-family: 'Courier New', monospace;
+            overflow: hidden;
+        }
+        #gameCanvas {
+            border: 4px solid #00fff7;
+            image-rendering: pixelated;
+            box-shadow: 0 0 30px #00fff7, inset 0 0 20px rgba(0, 255, 247, 0.1);
+        }
+        /* CRT Scanline Effect */
+        #crtOverlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            z-index: 100;
+            background: repeating-linear-gradient(
+                0deg,
+                rgba(0, 0, 0, 0.1),
+                rgba(0, 0, 0, 0.1) 1px,
+                transparent 1px,
+                transparent 3px
+            );
+        }
+        #startScreen {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: radial-gradient(ellipse at center, #1a1a2e 0%, #0a0a0f 50%, #05050a 100%);
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            z-index: 10;
+        }
+        #startScreen h1 {
+            font-size: 48px;
+            color: #00fff7;
+            text-shadow: 0 0 10px #00fff7, 0 0 20px #00fff7, 0 0 40px #ff00ff;
+            animation: neonPulse 1.5s infinite;
+            text-align: center;
+            margin-bottom: 10px;
+            letter-spacing: 8px;
+        }
+        #startScreen .subtitle {
+            font-size: 20px;
+            color: #ff00ff;
+            text-shadow: 0 0 10px #ff00ff;
+            margin-bottom: 40px;
+            letter-spacing: 4px;
+        }
+        #startScreen .instructions {
+            color: #fff;
+            font-size: 16px;
+            text-align: center;
+            line-height: 2;
+            max-width: 500px;
+        }
+        #startScreen .instructions .key {
+            display: inline-block;
+            padding: 4px 12px;
+            border: 2px solid #ffff00;
+            color: #ffff00;
+            margin: 0 4px;
+            box-shadow: 0 0 10px #ffff00;
+        }
+        #startScreen .click-hint {
+            font-size: 24px;
+            color: #ffff00;
+            text-shadow: 0 0 10px #ffff00;
+            animation: blink 1s infinite;
+            margin-top: 50px;
+        }
+        @keyframes neonPulse {
+            0%, 100% {
+                transform: scale(1);
+                text-shadow: 0 0 10px #00fff7, 0 0 20px #00fff7, 0 0 40px #ff00ff;
+            }
+            50% {
+                transform: scale(1.02);
+                text-shadow: 0 0 20px #00fff7, 0 0 40px #00fff7, 0 0 60px #ff00ff, 0 0 80px #ff00ff;
+            }
+        }
+        @keyframes blink {
+            0%, 50% { opacity: 1; }
+            51%, 100% { opacity: 0.3; }
+        }
+        .pixel-border {
+            padding: 30px 50px;
+            border: 4px solid #ff00ff;
+            box-shadow: 0 0 20px #ff00ff, inset 0 0 20px rgba(255, 0, 255, 0.1);
+        }
+    </style>
+</head>
+<body>
+    <div id="crtOverlay"></div>
+    <div id="startScreen">
+        <h1>NEON PULSE</h1>
+        <div class="subtitle">- 霓虹脉冲 -</div>
+        <div class="pixel-border">
+            <div class="instructions">
+                <div style="color: #00fff7; margin-bottom: 15px;">[ 节奏躲避游戏 ]</div>
+                <div>脉冲波从边缘向中心扩散</div>
+                <div>在波经过你时按下 <span class="key">SPACE</span></div>
+                <div>完美时机 = 高分!</div>
+                <br>
+                <div style="color: #ffff00;">
+                    PERFECT: +100 x Combo<br>
+                    GOOD: +50 x Combo<br>
+                    MISS: -10 HP
+                </div>
+                <br>
+                <div style="color: #ff00ff;">
+                    连续完美击中增加连击倍率!
+                    节奏会越来越快!
+                </div>
+            </div>
+        </div>
+        <div class="click-hint">>>> 点击开始游戏 <<<</div>
+    </div>
+    <canvas id="gameCanvas"></canvas>
+
+    <script>
+        // ==================== Constants ====================
+        const COLORS = {
+            bg1: '#0a0a0f',
+            bg2: '#1a1a2e',
+            cyan: '#00fff7',
+            magenta: '#ff00ff',
+            yellow: '#ffff00',
+            white: '#ffffff',
+            perfect: '#00fff7',
+            good: '#ffff00',
+            miss: '#ff00ff'
+        };
+
+        const PIXEL_SIZE = 2;
+
+        // ==================== Canvas Setup ====================
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+        const startScreen = document.getElementById('startScreen');
+
+        canvas.width = 800;
+        canvas.height = 600;
+
+        // ==================== Audio System ====================
+        class AudioSystem {
+            constructor() {
+                this.ctx = null;
+                this.enabled = false;
+                this.masterGain = null;
+                this.bgmPlaying = false;
+                this.bgmTimeout = null;
+                this.beatIndex = 0;
+            }
+
+            init() {
+                if (this.ctx) return;
+                this.ctx = new (window.AudioContext || window.webkitAudioContext)();
+                this.masterGain = this.ctx.createGain();
+                this.masterGain.gain.value = 0.4;
+                this.masterGain.connect(this.ctx.destination);
+                this.enabled = true;
+            }
+
+            playNote(freq, duration, type = 'square', volume = 0.3) {
+                if (!this.enabled || !this.ctx) return;
+                const osc = this.ctx.createOscillator();
+                const gain = this.ctx.createGain();
+                osc.type = type;
+                osc.frequency.value = freq;
+                gain.gain.setValueAtTime(volume, this.ctx.currentTime);
+                gain.gain.exponentialRampToValueAtTime(0.01, this.ctx.currentTime + duration);
+                osc.connect(gain);
+                gain.connect(this.masterGain);
+                osc.start();
+                osc.stop(this.ctx.currentTime + duration);
+            }
+
+            // Perfect hit - bright 8bit sound
+            playPerfect() {
+                this.playNote(880, 0.08, 'square', 0.3);
+                setTimeout(() => this.playNote(1320, 0.1, 'square', 0.25), 30);
+                setTimeout(() => this.playNote(1760, 0.15, 'square', 0.2), 60);
+            }
+
+            // Good hit - medium sound
+            playGood() {
+                this.playNote(660, 0.1, 'square', 0.25);
+                setTimeout(() => this.playNote(880, 0.12, 'square', 0.2), 40);
+            }
+
+            // Miss - low buzz
+            playMiss() {
+                this.playNote(110, 0.2, 'sawtooth', 0.3);
+                this.playNote(80, 0.25, 'sawtooth', 0.2);
+            }
+
+            // Game over - descending scale
+            playGameOver() {
+                const notes = [523, 494, 440, 392, 349, 330, 294, 262, 220, 196, 165, 131];
+                notes.forEach((freq, i) => {
+                    setTimeout(() => this.playNote(freq, 0.2, 'sawtooth', 0.25), i * 100);
+                });
+            }
+
+            // 8-bit BGM - electronic rhythm
+            startBGM() {
+                if (!this.enabled || !this.ctx || this.bgmPlaying) return;
+                this.bgmPlaying = true;
+                this.beatIndex = 0;
+                this.playBGMLoop();
+            }
+
+            playBGMLoop() {
+                if (!this.bgmPlaying) return;
+
+                const bpm = 140;
+                const beatDur = 60 / bpm;
+                const now = this.ctx.currentTime;
+
+                // Bass drum pattern
+                const bassPattern = [1, 0, 0, 1, 0, 0, 1, 0, 0, 1, 0, 1, 0, 1, 0, 0];
+                // Hi-hat pattern
+                const hihatPattern = [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1];
+                // Synth pattern (arpeggio)
+                const synthNotes = [262, 330, 392, 523, 392, 330, 262, 330];
+
+                for (let i = 0; i < 16; i++) {
+                    const time = now + i * beatDur * 0.5;
+
+                    // Bass drum
+                    if (bassPattern[i]) {
+                        const osc = this.ctx.createOscillator();
+                        const gain = this.ctx.createGain();
+                        osc.type = 'sine';
+                        osc.frequency.setValueAtTime(150, time);
+                        osc.frequency.exponentialRampToValueAtTime(50, time + 0.1);
+                        gain.gain.setValueAtTime(0.3, time);
+                        gain.gain.exponentialRampToValueAtTime(0.01, time + 0.15);
+                        osc.connect(gain);
+                        gain.connect(this.masterGain);
+                        osc.start(time);
+                        osc.stop(time + 0.15);
+                    }
+
+                    // Hi-hat (noise simulation)
+                    if (hihatPattern[i]) {
+                        const osc = this.ctx.createOscillator();
+                        const gain = this.ctx.createGain();
+                        osc.type = 'square';
+                        osc.frequency.value = 800 + Math.random() * 200;
+                        gain.gain.setValueAtTime(0.05, time);
+                        gain.gain.exponentialRampToValueAtTime(0.01, time + 0.03);
+                        osc.connect(gain);
+                        gain.connect(this.masterGain);
+                        osc.start(time);
+                        osc.stop(time + 0.03);
+                    }
+
+                    // Synth arpeggio
+                    if (i % 2 === 0) {
+                        const noteIndex = (this.beatIndex + i / 2) % synthNotes.length;
+                        const osc = this.ctx.createOscillator();
+                        const gain = this.ctx.createGain();
+                        osc.type = 'square';
+                        osc.frequency.value = synthNotes[noteIndex];
+                        gain.gain.setValueAtTime(0.08, time);
+                        gain.gain.exponentialRampToValueAtTime(0.01, time + beatDur * 0.4);
+                        osc.connect(gain);
+                        gain.connect(this.masterGain);
+                        osc.start(time);
+                        osc.stop(time + beatDur * 0.5);
+                    }
+                }
+
+                this.beatIndex = (this.beatIndex + 8) % synthNotes.length;
+                const loopDuration = 16 * beatDur * 0.5 * 1000;
+                this.bgmTimeout = setTimeout(() => this.playBGMLoop(), loopDuration);
+            }
+
+            stopBGM() {
+                this.bgmPlaying = false;
+                if (this.bgmTimeout) {
+                    clearTimeout(this.bgmTimeout);
+                    this.bgmTimeout = null;
+                }
+            }
+        }
+
+        // ==================== Pixel Drawing Functions ====================
+        function drawPixel(ctx, x, y, color, size = PIXEL_SIZE) {
+            ctx.fillStyle = color;
+            ctx.fillRect(Math.floor(x), Math.floor(y), size, size);
+        }
+
+        function drawPixelRect(ctx, x, y, w, h, color) {
+            ctx.fillStyle = color;
+            ctx.fillRect(Math.floor(x), Math.floor(y), w, h);
+        }
+
+        // Draw player - glowing pixel point
+        function drawPlayer(ctx, x, y, size, pulse) {
+            const glowSize = size + Math.sin(pulse) * 3;
+
+            // Outer glow
+            ctx.fillStyle = 'rgba(0, 255, 247, 0.2)';
+            ctx.fillRect(x - glowSize * 2, y - glowSize * 2, glowSize * 4, glowSize * 4);
+
+            // Middle glow
+            ctx.fillStyle = 'rgba(0, 255, 247, 0.4)';
+            ctx.fillRect(x - glowSize * 1.5, y - glowSize * 1.5, glowSize * 3, glowSize * 3);
+
+            // Inner glow
+            ctx.fillStyle = 'rgba(0, 255, 247, 0.7)';
+            ctx.fillRect(x - glowSize, y - glowSize, glowSize * 2, glowSize * 2);
+
+            // Core (bright white)
+            ctx.fillStyle = '#ffffff';
+            ctx.fillRect(x - size / 2, y - size / 2, size, size);
+
+            // Sparkle effect
+            if (Math.random() > 0.7) {
+                const sparkAngle = Math.random() * Math.PI * 2;
+                const sparkDist = glowSize * 1.5 + Math.random() * glowSize;
+                const sparkX = x + Math.cos(sparkAngle) * sparkDist;
+                const sparkY = y + Math.sin(sparkAngle) * sparkDist;
+                ctx.fillStyle = COLORS.cyan;
+                ctx.fillRect(sparkX - 1, sparkY - 1, 2, 2);
+            }
+        }
+
+        // Draw pulse wave - concentric pixel circle
+        function drawPulseWave(ctx, centerX, centerY, radius, color, alpha) {
+            const segments = Math.floor(radius * 0.5);
+            const pixelSize = 4;
+
+            ctx.save();
+            ctx.globalAlpha = alpha;
+
+            // Draw pixelated circle
+            for (let i = 0; i < segments; i++) {
+                const angle = (i / segments) * Math.PI * 2;
+                const px = centerX + Math.cos(angle) * radius;
+                const py = centerY + Math.sin(angle) * radius;
+
+                // Glow effect
+                ctx.fillStyle = color;
+                ctx.fillRect(px - pixelSize / 2, py - pixelSize / 2, pixelSize, pixelSize);
+
+                // Extra glow
+                if (Math.random() > 0.8) {
+                    ctx.fillStyle = '#ffffff';
+                    ctx.fillRect(px - 1, py - 1, 2, 2);
+                }
+            }
+
+            ctx.restore();
+        }
+
+        // Draw hit zone indicator
+        function drawHitZone(ctx, x, y, radius) {
+            ctx.save();
+            ctx.strokeStyle = 'rgba(255, 0, 255, 0.3)';
+            ctx.lineWidth = 2;
+            ctx.setLineDash([5, 5]);
+            ctx.beginPath();
+            ctx.arc(x, y, radius, 0, Math.PI * 2);
+            ctx.stroke();
+            ctx.restore();
+        }
+
+        // Draw particle
+        function drawParticle(ctx, x, y, size, color, alpha) {
+            ctx.globalAlpha = alpha;
+            ctx.fillStyle = color;
+            ctx.fillRect(Math.floor(x) - size / 2, Math.floor(y) - size / 2, size, size);
+            ctx.globalAlpha = 1;
+        }
+
+        // Draw background stars
+        function drawBgStars(ctx, stars) {
+            stars.forEach(star => {
+                const twinkle = Math.sin(Date.now() / 500 + star.phase) * 0.3 + 0.7;
+                ctx.fillStyle = star.color;
+                ctx.globalAlpha = star.brightness * twinkle;
+                ctx.fillRect(star.x, star.y, star.size, star.size);
+            });
+            ctx.globalAlpha = 1;
+        }
+
+        // Draw UI text in pixel style
+        function drawPixelText(ctx, text, x, y, color, size = 20) {
+            ctx.fillStyle = color;
+            ctx.font = `bold ${size}px "Courier New", monospace`;
+            ctx.textAlign = 'left';
+            ctx.fillText(text, x, y);
+        }
+
+        // Draw health bar
+        function drawHealthBar(ctx, x, y, width, height, health, maxHealth) {
+            // Background
+            ctx.fillStyle = '#333';
+            ctx.fillRect(x, y, width, height);
+
+            // Health
+            const healthWidth = (health / maxHealth) * width;
+            const healthColor = health > 60 ? COLORS.cyan : health > 30 ? COLORS.yellow : COLORS.magenta;
+            ctx.fillStyle = healthColor;
+            ctx.fillRect(x, y, healthWidth, height);
+
+            // Border
+            ctx.strokeStyle = healthColor;
+            ctx.lineWidth = 2;
+            ctx.strokeRect(x, y, width, height);
+
+            // Glow
+            ctx.shadowColor = healthColor;
+            ctx.shadowBlur = 10;
+            ctx.strokeRect(x, y, width, height);
+            ctx.shadowBlur = 0;
+        }
+
+        // Draw hit feedback text
+        function drawHitFeedback(ctx, text, x, y, alpha, scale, color) {
+            ctx.save();
+            ctx.globalAlpha = alpha;
+            ctx.fillStyle = color;
+            ctx.font = `bold ${24 * scale}px "Courier New", monospace`;
+            ctx.textAlign = 'center';
+            ctx.shadowColor = color;
+            ctx.shadowBlur = 15;
+            ctx.fillText(text, x, y);
+            ctx.restore();
+        }
+
+        // ==================== Game State ====================
+        const audio = new AudioSystem();
+
+        let gameRunning = false;
+        let score = 0;
+        let combo = 0;
+        let maxCombo = 0;
+        let health = 100;
+        const maxHealth = 100;
+        let lastTime = 0;
+        let gameTime = 0;
+
+        // Player
+        const player = {
+            x: canvas.width / 2,
+            y: canvas.height / 2,
+            size: 8,
+            pulse: 0
+        };
+
+        // Hit zone
+        const hitZone = {
+            innerRadius: 20,
+            outerRadius: 50
+        };
+
+        // Waves
+        let waves = [];
+        let waveSpawnTimer = 0;
+        let waveSpawnInterval = 2.0; // seconds
+        let waveSpeed = 80; // pixels per second
+        let maxWaveRadius = 0;
+
+        // Particles
+        let particles = [];
+
+        // Hit feedback
+        let hitFeedbacks = [];
+
+        // Background stars
+        let bgStars = [];
+
+        // Key states
+        let spacePressed = false;
+
+        // ==================== Game Functions ====================
+        function initBgStars() {
+            bgStars = [];
+            for (let i = 0; i < 100; i++) {
+                bgStars.push({
+                    x: Math.random() * canvas.width,
+                    y: Math.random() * canvas.height,
+                    size: Math.random() < 0.3 ? 2 : 1,
+                    brightness: Math.random() * 0.5 + 0.3,
+                    phase: Math.random() * Math.PI * 2,
+                    color: Math.random() < 0.3 ? COLORS.cyan : (Math.random() < 0.3 ? COLORS.magenta : COLORS.white)
+                });
+            }
+        }
+
+        function spawnWave() {
+            // Wave starts from edge and moves toward center
+            const startRadius = Math.max(canvas.width, canvas.height) * 0.8;
+            maxWaveRadius = startRadius;
+
+            // Random color for wave
+            const colors = [COLORS.cyan, COLORS.magenta, COLORS.yellow];
+            const color = colors[Math.floor(Math.random() * colors.length)];
+
+            waves.push({
+                radius: startRadius,
+                color: color,
+                alpha: 1,
+                hit: false
+            });
+        }
+
+        function createParticles(x, y, color, count) {
+            for (let i = 0; i < count; i++) {
+                const angle = Math.random() * Math.PI * 2;
+                const speed = Math.random() * 5 + 2;
+                particles.push({
+                    x: x,
+                    y: y,
+                    vx: Math.cos(angle) * speed,
+                    vy: Math.sin(angle) * speed,
+                    size: Math.random() * 6 + 2,
+                    color: color,
+                    life: 1
+                });
+            }
+        }
+
+        function addHitFeedback(text, color) {
+            hitFeedbacks.push({
+                text: text,
+                x: player.x,
+                y: player.y - 30,
+                alpha: 1,
+                scale: 1.5,
+                color: color,
+                vy: -2
+            });
+        }
+
+        function checkHit() {
+            if (waves.length === 0) return;
+
+            // Find the closest wave that hasn't been hit
+            let hitWave = null;
+            let minDist = Infinity;
+
+            for (let wave of waves) {
+                if (wave.hit) continue;
+
+                const dist = Math.abs(wave.radius - Math.sqrt(
+                    Math.pow(player.x - canvas.width / 2, 2) +
+                    Math.pow(player.y - canvas.height / 2, 2)
+                ));
+
+                if (dist < hitZone.outerRadius && dist < minDist) {
+                    minDist = dist;
+                    hitWave = wave;
+                }
+            }
+
+            if (hitWave) {
+                hitWave.hit = true;
+
+                // Calculate score based on timing
+                const playerDist = Math.sqrt(
+                    Math.pow(player.x - canvas.width / 2, 2) +
+                    Math.pow(player.y - canvas.height / 2, 2)
+                );
+                const timingDist = Math.abs(hitWave.radius - playerDist);
+
+                if (timingDist < hitZone.innerRadius) {
+                    // PERFECT!
+                    combo++;
+                    maxCombo = Math.max(maxCombo, combo);
+                    const points = 100 * getComboMultiplier();
+                    score += points;
+                    addHitFeedback(`PERFECT! +${points}`, COLORS.perfect);
+                    audio.playPerfect();
+                    createParticles(player.x, player.y, COLORS.cyan, 20);
+                } else {
+                    // GOOD
+                    combo++;
+                    maxCombo = Math.max(maxCombo, combo);
+                    const points = 50 * getComboMultiplier();
+                    score += points;
+                    addHitFeedback(`GOOD! +${points}`, COLORS.good);
+                    audio.playGood();
+                    createParticles(player.x, player.y, COLORS.yellow, 12);
+                }
+            }
+        }
+
+        function getComboMultiplier() {
+            if (combo >= 20) return 4;
+            if (combo >= 15) return 3;
+            if (combo >= 10) return 2.5;
+            if (combo >= 5) return 2;
+            return 1;
+        }
+
+        function update(dt) {
+            gameTime += dt;
+            player.pulse += dt * 8;
+
+            // Update difficulty
+            waveSpawnInterval = Math.max(0.5, 2.0 - gameTime * 0.02);
+            waveSpeed = 80 + gameTime * 2;
+
+            // Spawn waves
+            waveSpawnTimer += dt;
+            if (waveSpawnTimer >= waveSpawnInterval) {
+                spawnWave();
+                waveSpawnTimer = 0;
+            }
+
+            // Update waves
+            waves.forEach(wave => {
+                wave.radius -= waveSpeed * dt;
+                wave.alpha = Math.max(0.3, wave.radius / maxWaveRadius);
+            });
+
+            // Check for missed waves
+            waves = waves.filter(wave => {
+                // Wave passed through player zone without being hit
+                if (!wave.hit && wave.radius < -20) {
+                    // Missed!
+                    health -= 10;
+                    combo = 0;
+                    addHitFeedback('MISS!', COLORS.miss);
+                    audio.playMiss();
+                    createParticles(player.x, player.y, COLORS.magenta, 8);
+                    return false;
+                }
+                // Wave too small, remove
+                if (wave.radius < -50) {
+                    return false;
+                }
+                return true;
+            });
+
+            // Update particles
+            particles.forEach(p => {
+                p.x += p.vx;
+                p.y += p.vy;
+                p.life -= dt * 2;
+                p.size *= 0.97;
+            });
+            particles = particles.filter(p => p.life > 0);
+
+            // Update hit feedbacks
+            hitFeedbacks.forEach(fb => {
+                fb.y += fb.vy;
+                fb.alpha -= dt * 1.5;
+                fb.scale -= dt * 0.5;
+            });
+            hitFeedbacks = hitFeedbacks.filter(fb => fb.alpha > 0);
+
+            // Check game over
+            if (health <= 0) {
+                health = 0;
+                gameOver();
+            }
+        }
+
+        function render() {
+            // Clear with gradient background
+            const gradient = ctx.createRadialGradient(
+                canvas.width / 2, canvas.height / 2, 0,
+                canvas.width / 2, canvas.height / 2, canvas.width
+            );
+            gradient.addColorStop(0, COLORS.bg2);
+            gradient.addColorStop(0.5, COLORS.bg1);
+            gradient.addColorStop(1, '#05050a');
+            ctx.fillStyle = gradient;
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+            // Draw background stars
+            drawBgStars(ctx, bgStars);
+
+            // Draw hit zone
+            drawHitZone(ctx, player.x, player.y, (hitZone.innerRadius + hitZone.outerRadius) / 2);
+
+            // Draw waves
+            waves.forEach(wave => {
+                drawPulseWave(ctx, canvas.width / 2, canvas.height / 2, wave.radius, wave.color, wave.alpha);
+            });
+
+            // Draw particles
+            particles.forEach(p => {
+                drawParticle(ctx, p.x, p.y, p.size, p.color, p.life);
+            });
+
+            // Draw player
+            drawPlayer(ctx, player.x, player.y, player.size, player.pulse);
+
+            // Draw hit feedbacks
+            hitFeedbacks.forEach(fb => {
+                drawHitFeedback(ctx, fb.text, fb.x, fb.y, fb.alpha, Math.max(0.5, fb.scale), fb.color);
+            });
+
+            // Draw UI
+            drawUI();
+        }
+
+        function drawUI() {
+            // Score
+            ctx.shadowColor = COLORS.cyan;
+            ctx.shadowBlur = 10;
+            drawPixelText(ctx, `SCORE: ${score}`, 20, 40, COLORS.cyan, 24);
+            ctx.shadowBlur = 0;
+
+            // Combo
+            if (combo > 0) {
+                const comboColor = combo >= 10 ? COLORS.magenta : (combo >= 5 ? COLORS.yellow : COLORS.white);
+                ctx.shadowColor = comboColor;
+                ctx.shadowBlur = 10;
+                drawPixelText(ctx, `COMBO: ${combo}x${getComboMultiplier().toFixed(1)}`, 20, 70, comboColor, 20);
+                ctx.shadowBlur = 0;
+            }
+
+            // Health bar
+            drawHealthBar(ctx, 20, 85, 200, 20, health, maxHealth);
+            drawPixelText(ctx, 'HP', 230, 100, COLORS.white, 14);
+
+            // Game time
+            drawPixelText(ctx, `TIME: ${gameTime.toFixed(1)}s`, canvas.width - 180, 40, COLORS.magenta, 18);
+
+            // Difficulty indicator
+            const diffLevel = Math.floor(gameTime / 30) + 1;
+            drawPixelText(ctx, `LEVEL: ${diffLevel}`, canvas.width - 180, 65, COLORS.yellow, 18);
+
+            // Game over screen
+            if (!gameRunning && health <= 0) {
+                ctx.fillStyle = 'rgba(0, 0, 0, 0.85)';
+                ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+                // Glitch effect
+                const glitchOffset = Math.sin(Date.now() / 50) * 3;
+
+                ctx.shadowColor = COLORS.magenta;
+                ctx.shadowBlur = 20;
+                ctx.fillStyle = COLORS.miss;
+                ctx.font = 'bold 56px "Courier New", monospace';
+                ctx.textAlign = 'center';
+                ctx.fillText('GAME OVER', canvas.width / 2 + glitchOffset, canvas.height / 2 - 60);
+
+                ctx.shadowColor = COLORS.cyan;
+                ctx.fillStyle = COLORS.cyan;
+                ctx.font = 'bold 28px "Courier New", monospace';
+                ctx.fillText(`SCORE: ${score}`, canvas.width / 2, canvas.height / 2);
+
+                ctx.shadowBlur = 0;
+                ctx.fillStyle = COLORS.yellow;
+                ctx.font = '22px "Courier New", monospace';
+                ctx.fillText(`MAX COMBO: ${maxCombo}`, canvas.width / 2, canvas.height / 2 + 40);
+
+                ctx.fillStyle = COLORS.white;
+                ctx.font = '18px "Courier New", monospace';
+                ctx.fillText('Click to restart', canvas.width / 2, canvas.height / 2 + 100);
+            }
+        }
+
+        function gameLoop(timestamp) {
+            if (!gameRunning) return;
+
+            const dt = Math.min((timestamp - lastTime) / 1000, 0.1);
+            lastTime = timestamp;
+
+            update(dt);
+            render();
+
+            requestAnimationFrame(gameLoop);
+        }
+
+        function startGame() {
+            audio.init();
+            audio.startBGM();
+            startScreen.style.display = 'none';
+            gameRunning = true;
+
+            // Reset state
+            score = 0;
+            combo = 0;
+            maxCombo = 0;
+            health = 100;
+            gameTime = 0;
+            waves = [];
+            particles = [];
+            hitFeedbacks = [];
+            waveSpawnTimer = 0;
+            waveSpawnInterval = 2.0;
+            waveSpeed = 80;
+
+            initBgStars();
+
+            lastTime = performance.now();
+            requestAnimationFrame(gameLoop);
+        }
+
+        function gameOver() {
+            gameRunning = false;
+            audio.stopBGM();
+            audio.playGameOver();
+        }
+
+        function resetGame() {
+            audio.startBGM();
+            gameRunning = true;
+
+            score = 0;
+            combo = 0;
+            maxCombo = 0;
+            health = 100;
+            gameTime = 0;
+            waves = [];
+            particles = [];
+            hitFeedbacks = [];
+            waveSpawnTimer = 0;
+            waveSpawnInterval = 2.0;
+            waveSpeed = 80;
+
+            lastTime = performance.now();
+            requestAnimationFrame(gameLoop);
+        }
+
+        // ==================== Event Listeners ====================
+        startScreen.addEventListener('click', () => {
+            if (!gameRunning) startGame();
+        });
+
+        canvas.addEventListener('click', () => {
+            if (!gameRunning && health <= 0) {
+                resetGame();
+            }
+        });
+
+        document.addEventListener('keydown', (e) => {
+            if (e.code === 'Space') {
+                e.preventDefault();
+                if (!spacePressed && gameRunning) {
+                    spacePressed = true;
+                    checkHit();
+                }
+            }
+        });
+
+        document.addEventListener('keyup', (e) => {
+            if (e.code === 'Space') {
+                spacePressed = false;
+            }
+        });
+
+        // Initialize
+        initBgStars();
+    </script>
+</body>
+</html>

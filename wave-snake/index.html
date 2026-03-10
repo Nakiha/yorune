@@ -1,0 +1,1052 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>WAVE SNAKE - 波形蛇</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        body {
+            background: #0a0a0f;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            font-family: 'Courier New', monospace;
+            overflow: hidden;
+        }
+        #gameCanvas {
+            border: 4px solid #00f5ff;
+            image-rendering: pixelated;
+            box-shadow: 0 0 30px #00f5ff, inset 0 0 20px rgba(0, 245, 255, 0.1);
+        }
+        /* CRT Scanline Effect */
+        #crtOverlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            z-index: 100;
+            background: repeating-linear-gradient(
+                0deg,
+                rgba(0, 0, 0, 0.15),
+                rgba(0, 0, 0, 0.15) 1px,
+                transparent 1px,
+                transparent 3px
+            );
+        }
+        #startScreen {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: radial-gradient(ellipse at center, #1a1a2e 0%, #0a0a0f 50%, #05050a 100%);
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            z-index: 10;
+        }
+        #startScreen h1 {
+            font-size: 56px;
+            color: #00f5ff;
+            text-shadow: 0 0 10px #00f5ff, 0 0 20px #00f5ff, 0 0 40px #ff4da6;
+            animation: neonPulse 1.5s infinite;
+            text-align: center;
+            margin-bottom: 10px;
+            letter-spacing: 12px;
+        }
+        #startScreen .subtitle {
+            font-size: 22px;
+            color: #ff4da6;
+            text-shadow: 0 0 10px #ff4da6;
+            margin-bottom: 40px;
+            letter-spacing: 6px;
+        }
+        #startScreen .instructions {
+            color: #fff;
+            font-size: 15px;
+            text-align: center;
+            line-height: 2.4;
+            max-width: 520px;
+        }
+        #startScreen .instructions .key {
+            display: inline-block;
+            padding: 4px 12px;
+            border: 2px solid #ffff00;
+            color: #ffff00;
+            margin: 0 5px;
+            box-shadow: 0 0 8px #ffff00;
+            font-size: 13px;
+        }
+        #startScreen .click-hint {
+            font-size: 26px;
+            color: #ffff00;
+            text-shadow: 0 0 10px #ffff00;
+            animation: blink 1s infinite;
+            margin-top: 40px;
+        }
+        @keyframes neonPulse {
+            0%, 100% {
+                transform: scale(1);
+                text-shadow: 0 0 10px #00f5ff, 0 0 20px #00f5ff, 0 0 40px #ff4da6;
+            }
+            50% {
+                transform: scale(1.02);
+                text-shadow: 0 0 20px #00f5ff, 0 0 40px #00f5ff, 0 0 60px #ff4da6, 0 0 80px #ff4da6;
+            }
+        }
+        @keyframes blink {
+            0%, 50% { opacity: 1; }
+            51%, 100% { opacity: 0.3; }
+        }
+        .pixel-border {
+            padding: 30px 45px;
+            border: 4px solid #ff4da6;
+            box-shadow: 0 0 20px #ff4da6, inset 0 0 20px rgba(255, 77, 166, 0.1);
+        }
+        .legend {
+            display: flex;
+            justify-content: center;
+            gap: 18px;
+            margin-top: 18px;
+            flex-wrap: wrap;
+        }
+        .legend-item {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            font-size: 12px;
+        }
+        .legend-color {
+            width: 14px;
+            height: 14px;
+            border: 1px solid #fff;
+        }
+    </style>
+</head>
+<body>
+    <div id="crtOverlay"></div>
+    <div id="startScreen">
+        <h1>WAVE SNAKE</h1>
+        <div class="subtitle">- 波形蛇 -</div>
+        <div class="pixel-border">
+            <div class="instructions">
+                <div style="color: #00f5ff; margin-bottom: 15px;">[ 波浪形贪吃蛇 ]</div>
+                <div>蛇会像波浪一样扭动前进！</div>
+                <div><span class="key">Arrow Keys</span> 控制蛇头方向</div>
+                <div><span class="key">P</span> 暂停游戏</div>
+                <div>吃到食物蛇变长，撞墙或自己游戏结束</div>
+                <br>
+                <div style="color: #ffff00;">
+                    速度会越来越快！<br>
+                    特殊食物带来特殊效果！
+                </div>
+                <div class="legend">
+                    <div class="legend-item"><div class="legend-color" style="background: #00ff88;"></div> 普通食物</div>
+                    <div class="legend-item"><div class="legend-color" style="background: #ffff00;"></div> 加速</div>
+                    <div class="legend-item"><div class="legend-color" style="background: #3388ff;"></div> 减速</div>
+                    <div class="legend-item"><div class="legend-color" style="background: #aa33ff;"></div> 穿墙5秒</div>
+                </div>
+            </div>
+        </div>
+        <div class="click-hint">>>> 点击开始游戏 <<<</div>
+    </div>
+    <canvas id="gameCanvas"></canvas>
+
+    <script>
+        // ==================== Constants ====================
+        const COLORS = {
+            bg: '#0a0a0f',
+            bg2: '#1a1a2e',
+            cyan: '#00f5ff',
+            magenta: '#ff4da6',
+            yellow: '#ffff00',
+            green: '#00ff88',
+            white: '#ffffff',
+            red: '#ff3333',
+            blue: '#3388ff',
+            purple: '#aa33ff',
+            grid: '#1a1a2e'
+        };
+
+        const CANVAS_WIDTH = 800;
+        const CANVAS_HEIGHT = 600;
+        const GRID_SIZE = 16; // Pixel size
+        const SEGMENT_SIZE = 14;
+        const SEGMENT_GAP = 10;
+
+        // ==================== Canvas Setup ====================
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+        const startScreen = document.getElementById('startScreen');
+
+        canvas.width = CANVAS_WIDTH;
+        canvas.height = CANVAS_HEIGHT;
+
+        // ==================== Audio System ====================
+        class AudioSystem {
+            constructor() {
+                this.ctx = null;
+                this.enabled = false;
+                this.masterGain = null;
+                this.bgmPlaying = false;
+                this.bgmTimeout = null;
+            }
+
+            init() {
+                if (this.ctx) return;
+                this.ctx = new (window.AudioContext || window.webkitAudioContext)();
+                this.masterGain = this.ctx.createGain();
+                this.masterGain.gain.value = 0.4;
+                this.masterGain.connect(this.ctx.destination);
+                this.enabled = true;
+            }
+
+            playNote(freq, duration, type = 'square', volume = 0.25) {
+                if (!this.enabled || !this.ctx) return;
+                const osc = this.ctx.createOscillator();
+                const gain = this.ctx.createGain();
+                osc.type = type;
+                osc.frequency.value = freq;
+                gain.gain.setValueAtTime(volume, this.ctx.currentTime);
+                gain.gain.exponentialRampToValueAtTime(0.01, this.ctx.currentTime + duration);
+                osc.connect(gain);
+                gain.connect(this.masterGain);
+                osc.start();
+                osc.stop(this.ctx.currentTime + duration);
+            }
+
+            // Eat food - rising arpeggio
+            playEat() {
+                this.playNote(523, 0.08, 'square', 0.2);
+                setTimeout(() => this.playNote(659, 0.08, 'square', 0.18), 50);
+                setTimeout(() => this.playNote(784, 0.12, 'square', 0.15), 100);
+            }
+
+            // Turn - whoosh
+            playTurn() {
+                this.playNote(200, 0.05, 'sine', 0.1);
+                this.playNote(250, 0.05, 'sine', 0.08);
+            }
+
+            // Special food - sparkle
+            playSpecial() {
+                const notes = [659, 784, 880, 1047];
+                notes.forEach((freq, i) => {
+                    setTimeout(() => this.playNote(freq, 0.1, 'sine', 0.15), i * 60);
+                });
+            }
+
+            // Wall pass activate
+            playWallPass() {
+                this.playNote(330, 0.1, 'triangle', 0.2);
+                this.playNote(440, 0.1, 'triangle', 0.18);
+                this.playNote(550, 0.15, 'triangle', 0.15);
+            }
+
+            // Game over - collapse
+            playGameOver() {
+                const notes = [392, 349, 330, 294, 262, 220, 196, 165, 131, 98];
+                notes.forEach((freq, i) => {
+                    setTimeout(() => this.playNote(freq, 0.2, 'sawtooth', 0.25), i * 100);
+                });
+            }
+
+            // 8-bit BGM
+            startBGM() {
+                if (!this.enabled || !this.ctx || this.bgmPlaying) return;
+                this.bgmPlaying = true;
+                this.playBGMLoop();
+            }
+
+            playBGMLoop() {
+                if (!this.bgmPlaying) return;
+
+                const bpm = 120 + gameState.speed * 5;
+                const beatDur = 60 / bpm;
+                const now = this.ctx.currentTime;
+
+                // Bass pattern
+                const bassPattern = [1, 0, 0, 1, 0, 0, 1, 0, 0, 1, 0, 1, 0, 1, 0, 0];
+                // Melody notes
+                const melodyNotes = [262, 294, 330, 349, 392, 440, 494, 523];
+
+                for (let i = 0; i < 16; i++) {
+                    const time = now + i * beatDur * 0.5;
+
+                    // Bass
+                    if (bassPattern[i]) {
+                        const osc = this.ctx.createOscillator();
+                        const gain = this.ctx.createGain();
+                        osc.type = 'triangle';
+                        osc.frequency.setValueAtTime(110, time);
+                        gain.gain.setValueAtTime(0.12, time);
+                        gain.gain.exponentialRampToValueAtTime(0.01, time + 0.15);
+                        osc.connect(gain);
+                        gain.connect(this.masterGain);
+                        osc.start(time);
+                        osc.stop(time + 0.15);
+                    }
+
+                    // Hi-hat
+                    const hhOsc = this.ctx.createOscillator();
+                    const hhGain = this.ctx.createGain();
+                    hhOsc.type = 'square';
+                    hhOsc.frequency.value = 600 + Math.random() * 200;
+                    hhGain.gain.setValueAtTime(0.03, time);
+                    hhGain.gain.exponentialRampToValueAtTime(0.01, time + 0.02);
+                    hhOsc.connect(hhGain);
+                    hhGain.connect(this.masterGain);
+                    hhOsc.start(time);
+                    hhOsc.stop(time + 0.02);
+
+                    // Melody (every 4 beats)
+                    if (i % 4 === 0) {
+                        const noteIdx = Math.floor((i / 4 + Date.now() / 800) % melodyNotes.length);
+                        const osc = this.ctx.createOscillator();
+                        const gain = this.ctx.createGain();
+                        osc.type = 'square';
+                        osc.frequency.value = melodyNotes[noteIdx];
+                        gain.gain.setValueAtTime(0.05, time);
+                        gain.gain.exponentialRampToValueAtTime(0.01, time + beatDur * 0.8);
+                        osc.connect(gain);
+                        gain.connect(this.masterGain);
+                        osc.start(time);
+                        osc.stop(time + beatDur);
+                    }
+                }
+
+                const loopDuration = 16 * beatDur * 0.5 * 1000;
+                this.bgmTimeout = setTimeout(() => this.playBGMLoop(), loopDuration);
+            }
+
+            stopBGM() {
+                this.bgmPlaying = false;
+                if (this.bgmTimeout) {
+                    clearTimeout(this.bgmTimeout);
+                    this.bgmTimeout = null;
+                }
+            }
+        }
+
+        // ==================== Game State ====================
+        const audio = new AudioSystem();
+
+        const gameState = {
+            running: false,
+            paused: false,
+            score: 0,
+            speed: 1,
+            wallPass: false,
+            wallPassTimer: 0
+        };
+
+        // Snake
+        const snake = {
+            segments: [],
+            direction: { x: 1, y: 0 },
+            nextDirection: { x: 1, y: 0 },
+            baseSpeed: 100,
+            waveOffset: 0,
+            waveAmplitude: 8,
+            waveFrequency: 0.3
+        };
+
+        // Food
+        let foods = [];
+        const FOOD_TYPES = {
+            NORMAL: 'normal',
+            SPEED_UP: 'speedUp',
+            SLOW_DOWN: 'slowDown',
+            WALL_PASS: 'wallPass'
+        };
+
+        // Particles
+        let particles = [];
+
+        // Trail
+        let trails = [];
+
+        // Timing
+        let lastTime = 0;
+        let moveAccumulator = 0;
+
+        // ==================== Helper Functions ====================
+        function lerp(a, b, t) {
+            return a + (b - a) * t;
+        }
+
+        function getGradientColor(t) {
+            // Cyan (#00f5ff) to Pink (#ff4da6)
+            const r = Math.floor(lerp(0, 255, t));
+            const g = Math.floor(lerp(245, 77, t));
+            const b = Math.floor(lerp(255, 166, t));
+            return `rgb(${r}, ${g}, ${b})`;
+        }
+
+        function distance(a, b) {
+            return Math.sqrt((a.x - b.x) ** 2 + (a.y - b.y) ** 2);
+        }
+
+        // ==================== Game Functions ====================
+        function initSnake() {
+            snake.segments = [];
+            snake.direction = { x: 1, y: 0 };
+            snake.nextDirection = { x: 1, y: 0 };
+            snake.waveOffset = 0;
+
+            // Start with 5 segments
+            const startX = CANVAS_WIDTH / 2;
+            const startY = CANVAS_HEIGHT / 2;
+            for (let i = 0; i < 5; i++) {
+                snake.segments.push({
+                    x: startX - i * SEGMENT_GAP,
+                    y: startY,
+                    waveY: 0
+                });
+            }
+        }
+
+        function spawnFood() {
+            if (foods.length >= 3) return;
+
+            const margin = 40;
+            const x = margin + Math.random() * (CANVAS_WIDTH - margin * 2);
+            const y = margin + Math.random() * (CANVAS_HEIGHT - margin * 2);
+
+            // Check distance from snake
+            let tooClose = false;
+            for (const seg of snake.segments) {
+                if (distance({ x, y }, seg) < 50) {
+                    tooClose = true;
+                    break;
+                }
+            }
+            if (tooClose) return spawnFood();
+
+            // Determine type
+            const rand = Math.random();
+            let type, color, glowColor;
+            if (rand < 0.6) {
+                type = FOOD_TYPES.NORMAL;
+                color = COLORS.green;
+                glowColor = '#00ff88';
+            } else if (rand < 0.75) {
+                type = FOOD_TYPES.SPEED_UP;
+                color = COLORS.yellow;
+                glowColor = '#ffff00';
+            } else if (rand < 0.9) {
+                type = FOOD_TYPES.SLOW_DOWN;
+                color = COLORS.blue;
+                glowColor = '#3388ff';
+            } else {
+                type = FOOD_TYPES.WALL_PASS;
+                color = COLORS.purple;
+                glowColor = '#aa33ff';
+            }
+
+            foods.push({
+                x, y, type, color, glowColor,
+                pulse: 0
+            });
+        }
+
+        function createParticles(x, y, color, count) {
+            for (let i = 0; i < count; i++) {
+                const angle = Math.random() * Math.PI * 2;
+                const speed = 80 + Math.random() * 120;
+                particles.push({
+                    x, y,
+                    vx: Math.cos(angle) * speed,
+                    vy: Math.sin(angle) * speed,
+                    size: 3 + Math.random() * 5,
+                    color,
+                    life: 0.6 + Math.random() * 0.4
+                });
+            }
+        }
+
+        function updateSnake(dt) {
+            // Update wave offset
+            snake.waveOffset += dt * 8;
+
+            // Apply direction change
+            snake.direction = { ...snake.nextDirection };
+
+            // Calculate speed
+            const currentSpeed = snake.baseSpeed * (1 + gameState.speed * 0.3);
+            moveAccumulator += currentSpeed * dt;
+
+            const moveStep = SEGMENT_GAP;
+
+            while (moveAccumulator >= moveStep) {
+                // Move head
+                const head = snake.segments[0];
+                const newHead = {
+                    x: head.x + snake.direction.x * moveStep,
+                    y: head.y + snake.direction.y * moveStep,
+                    waveY: 0
+                };
+
+                // Wall collision / wrap
+                if (gameState.wallPass) {
+                    // Wrap around
+                    if (newHead.x < 0) newHead.x = CANVAS_WIDTH;
+                    if (newHead.x > CANVAS_WIDTH) newHead.x = 0;
+                    if (newHead.y < 0) newHead.y = CANVAS_HEIGHT;
+                    if (newHead.y > CANVAS_HEIGHT) newHead.y = 0;
+                } else {
+                    // Check wall collision
+                    if (newHead.x < SEGMENT_SIZE / 2 || newHead.x > CANVAS_WIDTH - SEGMENT_SIZE / 2 ||
+                        newHead.y < SEGMENT_SIZE / 2 || newHead.y > CANVAS_HEIGHT - SEGMENT_SIZE / 2) {
+                        gameOver();
+                        return;
+                    }
+                }
+
+                // Check self collision (skip first few segments)
+                for (let i = 4; i < snake.segments.length; i++) {
+                    if (distance(newHead, snake.segments[i]) < SEGMENT_SIZE * 0.7) {
+                        if (!gameState.wallPass) {
+                            gameOver();
+                            return;
+                        }
+                    }
+                }
+
+                // Add trail at old head position
+                trails.push({
+                    x: head.x,
+                    y: head.y,
+                    color: getGradientColor(0),
+                    alpha: 0.4,
+                    size: SEGMENT_SIZE * 0.6
+                });
+
+                // Add new head
+                snake.segments.unshift(newHead);
+                snake.segments.pop();
+
+                moveAccumulator -= moveStep;
+            }
+
+            // Calculate wave offset for each segment
+            for (let i = 0; i < snake.segments.length; i++) {
+                const seg = snake.segments[i];
+                const wavePhase = snake.waveOffset - i * snake.waveFrequency;
+
+                // Calculate perpendicular direction for wave
+                const perpX = -snake.direction.y;
+                const perpY = snake.direction.x;
+
+                // Apply sine wave offset
+                seg.waveY = Math.sin(wavePhase) * snake.waveAmplitude * (1 - i / snake.segments.length * 0.5);
+            }
+        }
+
+        function checkFoodCollision() {
+            const head = snake.segments[0];
+            const actualHeadX = head.x + (-snake.direction.y) * head.waveY;
+            const actualHeadY = head.y + snake.direction.x * head.waveY;
+
+            for (let i = foods.length - 1; i >= 0; i--) {
+                const food = foods[i];
+                if (distance({ x: actualHeadX, y: actualHeadY }, food) < SEGMENT_SIZE) {
+                    // Eat food
+                    createParticles(food.x, food.y, food.color, 20);
+
+                    switch (food.type) {
+                        case FOOD_TYPES.NORMAL:
+                            gameState.score += 10;
+                            growSnake(2);
+                            audio.playEat();
+                            break;
+                        case FOOD_TYPES.SPEED_UP:
+                            gameState.score += 15;
+                            gameState.speed = Math.min(10, gameState.speed + 0.5);
+                            growSnake(2);
+                            audio.playSpecial();
+                            break;
+                        case FOOD_TYPES.SLOW_DOWN:
+                            gameState.score += 15;
+                            gameState.speed = Math.max(0.5, gameState.speed - 0.5);
+                            growSnake(2);
+                            audio.playSpecial();
+                            break;
+                        case FOOD_TYPES.WALL_PASS:
+                            gameState.score += 20;
+                            gameState.wallPass = true;
+                            gameState.wallPassTimer = 5;
+                            growSnake(3);
+                            audio.playWallPass();
+                            break;
+                    }
+
+                    foods.splice(i, 1);
+                }
+            }
+        }
+
+        function growSnake(count) {
+            const tail = snake.segments[snake.segments.length - 1];
+            const prev = snake.segments[snake.segments.length - 2] || tail;
+
+            for (let i = 0; i < count; i++) {
+                const dx = tail.x - prev.x;
+                const dy = tail.y - prev.y;
+                snake.segments.push({
+                    x: tail.x + dx * 0.5,
+                    y: tail.y + dy * 0.5,
+                    waveY: 0
+                });
+            }
+        }
+
+        function update(dt) {
+            if (gameState.paused) return;
+
+            // Update wall pass timer
+            if (gameState.wallPass) {
+                gameState.wallPassTimer -= dt;
+                if (gameState.wallPassTimer <= 0) {
+                    gameState.wallPass = false;
+                }
+            }
+
+            // Update snake
+            updateSnake(dt);
+
+            // Check food collision
+            checkFoodCollision();
+
+            // Spawn food
+            if (Math.random() < 0.02) {
+                spawnFood();
+            }
+
+            // Update food pulse
+            foods.forEach(f => {
+                f.pulse += dt * 5;
+            });
+
+            // Update particles
+            particles.forEach(p => {
+                p.x += p.vx * dt;
+                p.y += p.vy * dt;
+                p.vy += 150 * dt;
+                p.life -= dt;
+            });
+            particles = particles.filter(p => p.life > 0);
+
+            // Update trails
+            trails.forEach(t => {
+                t.alpha -= dt * 0.8;
+            });
+            trails = trails.filter(t => t.alpha > 0);
+
+            // Gradually increase speed
+            gameState.speed += dt * 0.01;
+        }
+
+        function render() {
+            // Clear background
+            ctx.fillStyle = COLORS.bg;
+            ctx.fillRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
+
+            // Draw grid
+            ctx.strokeStyle = COLORS.grid;
+            ctx.lineWidth = 1;
+            ctx.globalAlpha = 0.3;
+            for (let x = 0; x < CANVAS_WIDTH; x += GRID_SIZE) {
+                ctx.beginPath();
+                ctx.moveTo(x, 0);
+                ctx.lineTo(x, CANVAS_HEIGHT);
+                ctx.stroke();
+            }
+            for (let y = 0; y < CANVAS_HEIGHT; y += GRID_SIZE) {
+                ctx.beginPath();
+                ctx.moveTo(0, y);
+                ctx.lineTo(CANVAS_WIDTH, y);
+                ctx.stroke();
+            }
+            ctx.globalAlpha = 1;
+
+            // Draw trails
+            trails.forEach(t => {
+                ctx.globalAlpha = t.alpha * 0.5;
+                ctx.fillStyle = t.color;
+                const size = Math.floor(t.size);
+                ctx.fillRect(
+                    Math.floor(t.x - size / 2),
+                    Math.floor(t.y - size / 2),
+                    size, size
+                );
+            });
+            ctx.globalAlpha = 1;
+
+            // Draw food
+            foods.forEach(food => {
+                const pulseSize = Math.sin(food.pulse) * 3;
+                const glowSize = SEGMENT_SIZE + 8 + pulseSize;
+
+                // Glow
+                ctx.fillStyle = food.glowColor;
+                ctx.globalAlpha = 0.3 + Math.sin(food.pulse) * 0.1;
+                ctx.beginPath();
+                ctx.arc(food.x, food.y, glowSize, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.globalAlpha = 1;
+
+                // Food pixel
+                const size = SEGMENT_SIZE - 2;
+                ctx.fillStyle = food.color;
+                ctx.shadowColor = food.glowColor;
+                ctx.shadowBlur = 15;
+                ctx.fillRect(
+                    Math.floor(food.x - size / 2),
+                    Math.floor(food.y - size / 2),
+                    size, size
+                );
+
+                // Inner highlight
+                ctx.fillStyle = 'rgba(255,255,255,0.4)';
+                ctx.fillRect(
+                    Math.floor(food.x - size / 2) + 2,
+                    Math.floor(food.y - size / 2) + 2,
+                    4, 4
+                );
+                ctx.shadowBlur = 0;
+            });
+
+            // Draw snake
+            drawSnake();
+
+            // Draw particles
+            particles.forEach(p => {
+                ctx.globalAlpha = p.life;
+                ctx.fillStyle = p.color;
+                const size = Math.floor(p.size);
+                ctx.fillRect(Math.floor(p.x), Math.floor(p.y), size, size);
+            });
+            ctx.globalAlpha = 1;
+
+            // Draw UI
+            drawUI();
+
+            // Pause overlay
+            if (gameState.paused) {
+                ctx.fillStyle = 'rgba(0, 0, 0, 0.7)';
+                ctx.fillRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
+
+                ctx.shadowColor = COLORS.cyan;
+                ctx.shadowBlur = 20;
+                ctx.fillStyle = COLORS.cyan;
+                ctx.font = 'bold 48px "Courier New", monospace';
+                ctx.textAlign = 'center';
+                ctx.fillText('PAUSED', CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2);
+
+                ctx.shadowBlur = 0;
+                ctx.fillStyle = COLORS.white;
+                ctx.font = '20px "Courier New", monospace';
+                ctx.fillText('Press P to continue', CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2 + 50);
+            }
+
+            // Game over screen
+            if (!gameState.running && gameState.score > 0) {
+                ctx.fillStyle = 'rgba(0, 0, 0, 0.85)';
+                ctx.fillRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
+
+                const glitchOffset = Math.sin(Date.now() / 50) * 3;
+
+                ctx.shadowColor = COLORS.red;
+                ctx.shadowBlur = 20;
+                ctx.fillStyle = COLORS.red;
+                ctx.font = 'bold 52px "Courier New", monospace';
+                ctx.textAlign = 'center';
+                ctx.fillText('GAME OVER', CANVAS_WIDTH / 2 + glitchOffset, CANVAS_HEIGHT / 2 - 60);
+
+                ctx.shadowColor = COLORS.cyan;
+                ctx.fillStyle = COLORS.cyan;
+                ctx.font = 'bold 28px "Courier New", monospace';
+                ctx.fillText(`SCORE: ${gameState.score}`, CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2);
+
+                ctx.shadowBlur = 0;
+                ctx.fillStyle = COLORS.magenta;
+                ctx.font = '22px "Courier New", monospace';
+                ctx.fillText(`LENGTH: ${snake.segments.length}`, CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2 + 40);
+
+                ctx.fillStyle = COLORS.white;
+                ctx.font = '18px "Courier New", monospace';
+                ctx.fillText('Click to restart', CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2 + 100);
+            }
+        }
+
+        function drawSnake() {
+            // Draw from tail to head
+            for (let i = snake.segments.length - 1; i >= 0; i--) {
+                const seg = snake.segments[i];
+                const t = i / Math.max(1, snake.segments.length - 1);
+                const color = getGradientColor(t);
+
+                // Calculate perpendicular for wave
+                const perpX = -snake.direction.y;
+                const perpY = snake.direction.x;
+
+                // Apply wave to position
+                const x = seg.x + perpX * seg.waveY;
+                const y = seg.y + perpY * seg.waveY;
+
+                const size = i === 0 ? SEGMENT_SIZE : SEGMENT_SIZE - 1;
+
+                // Glow for head
+                if (i === 0) {
+                    ctx.fillStyle = color;
+                    ctx.globalAlpha = 0.3;
+                    ctx.beginPath();
+                    ctx.arc(x, y, size + 6, 0, Math.PI * 2);
+                    ctx.fill();
+                    ctx.globalAlpha = 1;
+                }
+
+                // Segment body
+                ctx.fillStyle = color;
+                ctx.shadowColor = color;
+                ctx.shadowBlur = i === 0 ? 15 : 8;
+
+                // Draw pixel-style segment
+                const halfSize = Math.floor(size / 2);
+                ctx.fillRect(
+                    Math.floor(x - halfSize),
+                    Math.floor(y - halfSize),
+                    size, size
+                );
+
+                // Inner detail
+                if (i === 0) {
+                    // Eyes
+                    ctx.fillStyle = '#fff';
+                    const eyeOffset = 3;
+                    const ex1 = x + snake.direction.x * 2 + snake.direction.y * eyeOffset;
+                    const ey1 = y + snake.direction.y * 2 - snake.direction.x * eyeOffset;
+                    const ex2 = x + snake.direction.x * 2 - snake.direction.y * eyeOffset;
+                    const ey2 = y + snake.direction.y * 2 + snake.direction.x * eyeOffset;
+                    ctx.fillRect(Math.floor(ex1) - 1, Math.floor(ey1) - 1, 3, 3);
+                    ctx.fillRect(Math.floor(ex2) - 1, Math.floor(ey2) - 1, 3, 3);
+
+                    // Pupils
+                    ctx.fillStyle = '#000';
+                    ctx.fillRect(Math.floor(ex1 + snake.direction.x), Math.floor(ey1 + snake.direction.y), 2, 2);
+                    ctx.fillRect(Math.floor(ex2 + snake.direction.x), Math.floor(ey2 + snake.direction.y), 2, 2);
+                } else {
+                    // Body highlight
+                    ctx.fillStyle = 'rgba(255,255,255,0.25)';
+                    ctx.fillRect(
+                        Math.floor(x - halfSize) + 2,
+                        Math.floor(y - halfSize) + 2,
+                        4, 4
+                    );
+                }
+
+                ctx.shadowBlur = 0;
+            }
+
+            // Wall pass effect
+            if (gameState.wallPass) {
+                const head = snake.segments[0];
+                ctx.strokeStyle = COLORS.purple;
+                ctx.lineWidth = 3;
+                ctx.globalAlpha = 0.5 + Math.sin(Date.now() / 100) * 0.3;
+                ctx.setLineDash([5, 5]);
+                ctx.strokeRect(5, 5, CANVAS_WIDTH - 10, CANVAS_HEIGHT - 10);
+                ctx.setLineDash([]);
+                ctx.globalAlpha = 1;
+            }
+        }
+
+        function drawUI() {
+            // Score
+            ctx.shadowColor = COLORS.cyan;
+            ctx.shadowBlur = 10;
+            ctx.fillStyle = COLORS.cyan;
+            ctx.font = 'bold 24px "Courier New", monospace';
+            ctx.textAlign = 'left';
+            ctx.fillText(`SCORE: ${gameState.score}`, 20, 35);
+            ctx.shadowBlur = 0;
+
+            // Length
+            ctx.fillStyle = COLORS.magenta;
+            ctx.font = 'bold 18px "Courier New", monospace';
+            ctx.fillText(`LENGTH: ${snake.segments.length}`, 20, 60);
+
+            // Speed
+            ctx.fillStyle = COLORS.yellow;
+            ctx.fillText(`SPEED: ${gameState.speed.toFixed(1)}x`, 20, 85);
+
+            // Wall pass indicator
+            if (gameState.wallPass) {
+                ctx.fillStyle = COLORS.purple;
+                ctx.font = 'bold 18px "Courier New", monospace';
+                ctx.textAlign = 'right';
+                ctx.fillText(`WALL PASS: ${gameState.wallPassTimer.toFixed(1)}s`, CANVAS_WIDTH - 20, 35);
+            }
+
+            // Controls hint
+            ctx.fillStyle = 'rgba(255,255,255,0.5)';
+            ctx.font = '12px "Courier New", monospace';
+            ctx.textAlign = 'center';
+            ctx.fillText('Arrows: Move | P: Pause', CANVAS_WIDTH / 2, CANVAS_HEIGHT - 15);
+            ctx.textAlign = 'left';
+        }
+
+        function gameLoop(timestamp) {
+            if (!gameState.running) return;
+
+            const dt = Math.min((timestamp - lastTime) / 1000, 0.1);
+            lastTime = timestamp;
+
+            update(dt);
+            render();
+
+            requestAnimationFrame(gameLoop);
+        }
+
+        function startGame() {
+            audio.init();
+            audio.startBGM();
+            startScreen.style.display = 'none';
+
+            // Reset state
+            gameState.running = true;
+            gameState.paused = false;
+            gameState.score = 0;
+            gameState.speed = 1;
+            gameState.wallPass = false;
+            gameState.wallPassTimer = 0;
+
+            foods = [];
+            particles = [];
+            trails = [];
+            moveAccumulator = 0;
+
+            initSnake();
+
+            // Spawn initial food
+            for (let i = 0; i < 3; i++) {
+                spawnFood();
+            }
+
+            lastTime = performance.now();
+            requestAnimationFrame(gameLoop);
+        }
+
+        function gameOver() {
+            gameState.running = false;
+            audio.stopBGM();
+            audio.playGameOver();
+        }
+
+        function resetGame() {
+            audio.startBGM();
+
+            gameState.running = true;
+            gameState.paused = false;
+            gameState.score = 0;
+            gameState.speed = 1;
+            gameState.wallPass = false;
+            gameState.wallPassTimer = 0;
+
+            foods = [];
+            particles = [];
+            trails = [];
+            moveAccumulator = 0;
+
+            initSnake();
+
+            for (let i = 0; i < 3; i++) {
+                spawnFood();
+            }
+
+            lastTime = performance.now();
+            requestAnimationFrame(gameLoop);
+        }
+
+        // ==================== Event Listeners ====================
+        startScreen.addEventListener('click', () => {
+            if (!gameState.running) startGame();
+        });
+
+        canvas.addEventListener('click', () => {
+            if (!gameState.running && gameState.score > 0) {
+                resetGame();
+            }
+        });
+
+        document.addEventListener('keydown', (e) => {
+            // Start on any key if on start screen
+            if (startScreen.style.display !== 'none') {
+                startGame();
+                return;
+            }
+
+            if (!gameState.running) return;
+
+            // Pause
+            if (e.code === 'KeyP') {
+                gameState.paused = !gameState.paused;
+                e.preventDefault();
+                return;
+            }
+
+            if (gameState.paused) return;
+
+            // Direction change (can't reverse)
+            const dir = snake.direction;
+            switch (e.code) {
+                case 'ArrowUp':
+                case 'KeyW':
+                    if (dir.y !== 1) {
+                        snake.nextDirection = { x: 0, y: -1 };
+                        audio.playTurn();
+                    }
+                    e.preventDefault();
+                    break;
+                case 'ArrowDown':
+                case 'KeyS':
+                    if (dir.y !== -1) {
+                        snake.nextDirection = { x: 0, y: 1 };
+                        audio.playTurn();
+                    }
+                    e.preventDefault();
+                    break;
+                case 'ArrowLeft':
+                case 'KeyA':
+                    if (dir.x !== 1) {
+                        snake.nextDirection = { x: -1, y: 0 };
+                        audio.playTurn();
+                    }
+                    e.preventDefault();
+                    break;
+                case 'ArrowRight':
+                case 'KeyD':
+                    if (dir.x !== -1) {
+                        snake.nextDirection = { x: 1, y: 0 };
+                        audio.playTurn();
+                    }
+                    e.preventDefault();
+                    break;
+            }
+        });
+
+        // Initial render
+        render();
+    </script>
+</body>
+</html>

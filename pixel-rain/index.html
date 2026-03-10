@@ -1,0 +1,1124 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>PIXEL RAIN - 像素雨</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        body {
+            background: #0a0a0f;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            font-family: 'Courier New', monospace;
+            overflow: hidden;
+        }
+        #gameCanvas {
+            border: 4px solid #00f5ff;
+            image-rendering: pixelated;
+            box-shadow: 0 0 30px #00f5ff, inset 0 0 20px rgba(0, 245, 255, 0.1);
+        }
+        /* CRT Scanline Effect */
+        #crtOverlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            z-index: 100;
+            background: repeating-linear-gradient(
+                0deg,
+                rgba(0, 0, 0, 0.15),
+                rgba(0, 0, 0, 0.15) 1px,
+                transparent 1px,
+                transparent 3px
+            );
+        }
+        #startScreen {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: radial-gradient(ellipse at center, #1a1a2e 0%, #0a0a0f 50%, #05050a 100%);
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            z-index: 10;
+        }
+        #startScreen h1 {
+            font-size: 48px;
+            color: #00f5ff;
+            text-shadow: 0 0 10px #00f5ff, 0 0 20px #00f5ff, 0 0 40px #ff4da6;
+            animation: neonPulse 1.5s infinite;
+            text-align: center;
+            margin-bottom: 10px;
+            letter-spacing: 8px;
+        }
+        #startScreen .subtitle {
+            font-size: 20px;
+            color: #ff4da6;
+            text-shadow: 0 0 10px #ff4da6;
+            margin-bottom: 40px;
+            letter-spacing: 4px;
+        }
+        #startScreen .instructions {
+            color: #fff;
+            font-size: 14px;
+            text-align: center;
+            line-height: 2.2;
+            max-width: 500px;
+        }
+        #startScreen .instructions .key {
+            display: inline-block;
+            padding: 3px 10px;
+            border: 2px solid #ffff00;
+            color: #ffff00;
+            margin: 0 4px;
+            box-shadow: 0 0 8px #ffff00;
+        }
+        #startScreen .click-hint {
+            font-size: 24px;
+            color: #ffff00;
+            text-shadow: 0 0 10px #ffff00;
+            animation: blink 1s infinite;
+            margin-top: 40px;
+        }
+        @keyframes neonPulse {
+            0%, 100% {
+                transform: scale(1);
+                text-shadow: 0 0 10px #00f5ff, 0 0 20px #00f5ff, 0 0 40px #ff4da6;
+            }
+            50% {
+                transform: scale(1.02);
+                text-shadow: 0 0 20px #00f5ff, 0 0 40px #00f5ff, 0 0 60px #ff4da6, 0 0 80px #ff4da6;
+            }
+        }
+        @keyframes blink {
+            0%, 50% { opacity: 1; }
+            51%, 100% { opacity: 0.3; }
+        }
+        .pixel-border {
+            padding: 25px 40px;
+            border: 4px solid #ff4da6;
+            box-shadow: 0 0 20px #ff4da6, inset 0 0 20px rgba(255, 77, 166, 0.1);
+        }
+        .legend {
+            display: flex;
+            justify-content: center;
+            gap: 15px;
+            margin-top: 15px;
+            flex-wrap: wrap;
+        }
+        .legend-item {
+            display: flex;
+            align-items: center;
+            gap: 5px;
+            font-size: 11px;
+        }
+        .legend-color {
+            width: 12px;
+            height: 12px;
+            border: 1px solid #fff;
+        }
+    </style>
+</head>
+<body>
+    <div id="crtOverlay"></div>
+    <div id="startScreen">
+        <h1>PIXEL RAIN</h1>
+        <div class="subtitle">- 像素雨 -</div>
+        <div class="pixel-border">
+            <div class="instructions">
+                <div style="color: #00f5ff; margin-bottom: 12px;">[ 方块雨生存游戏 ]</div>
+                <div>方块从天而降，躲避它们！</div>
+                <div><span class="key">A/D</span> 或 <span class="key">LEFT/RIGHT</span> 左右移动</div>
+                <div><span class="key">SPACE</span> 挖掘前方方块</div>
+                <div>方块会堆积，钻洞开辟通道！</div>
+                <br>
+                <div style="color: #ffff00;">
+                    存活越久，分数越高！<br>
+                    速度会越来越快！
+                </div>
+                <div class="legend">
+                    <div class="legend-item"><div class="legend-color" style="background: #ff3333;"></div> 红色方块</div>
+                    <div class="legend-item"><div class="legend-color" style="background: #ff8833;"></div> 橙色方块</div>
+                    <div class="legend-item"><div class="legend-color" style="background: #3388ff;"></div> 蓝色方块</div>
+                    <div class="legend-item"><div class="legend-color" style="background: #aa33ff;"></div> 紫色方块</div>
+                    <div class="legend-item"><div class="legend-color" style="background: #00ff88;"></div> +血</div>
+                    <div class="legend-item"><div class="legend-color" style="background: #ffff00;"></div> 清行</div>
+                    <div class="legend-item"><div class="legend-color" style="background: #ff00ff;"></div> 护盾</div>
+                </div>
+            </div>
+        </div>
+        <div class="click-hint">>>> 点击开始游戏 <<<</div>
+    </div>
+    <canvas id="gameCanvas"></canvas>
+
+    <script>
+        // ==================== Constants ====================
+        const COLORS = {
+            bg1: '#0a0a0f',
+            bg2: '#1a1a2e',
+            cyan: '#00f5ff',
+            magenta: '#ff4da6',
+            yellow: '#ffff00',
+            green: '#00ff88',
+            white: '#ffffff',
+            red: '#ff3333',
+            orange: '#ff8833',
+            blue: '#3388ff',
+            purple: '#aa33ff'
+        };
+
+        const CANVAS_WIDTH = 800;
+        const CANVAS_HEIGHT = 600;
+        const GRID_SIZE = 20;
+        const COLS = Math.floor(CANVAS_WIDTH / GRID_SIZE);
+        const ROWS = Math.floor(CANVAS_HEIGHT / GRID_SIZE);
+        const PLAYER_ROW = ROWS - 2;
+
+        // ==================== Canvas Setup ====================
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+        const startScreen = document.getElementById('startScreen');
+
+        canvas.width = CANVAS_WIDTH;
+        canvas.height = CANVAS_HEIGHT;
+
+        // ==================== Audio System ====================
+        class AudioSystem {
+            constructor() {
+                this.ctx = null;
+                this.enabled = false;
+                this.masterGain = null;
+                this.bgmPlaying = false;
+                this.bgmTimeout = null;
+            }
+
+            init() {
+                if (this.ctx) return;
+                this.ctx = new (window.AudioContext || window.webkitAudioContext)();
+                this.masterGain = this.ctx.createGain();
+                this.masterGain.gain.value = 0.4;
+                this.masterGain.connect(this.ctx.destination);
+                this.enabled = true;
+            }
+
+            playNote(freq, duration, type = 'square', volume = 0.25) {
+                if (!this.enabled || !this.ctx) return;
+                const osc = this.ctx.createOscillator();
+                const gain = this.ctx.createGain();
+                osc.type = type;
+                osc.frequency.value = freq;
+                gain.gain.setValueAtTime(volume, this.ctx.currentTime);
+                gain.gain.exponentialRampToValueAtTime(0.01, this.ctx.currentTime + duration);
+                osc.connect(gain);
+                gain.connect(this.masterGain);
+                osc.start();
+                osc.stop(this.ctx.currentTime + duration);
+            }
+
+            // Block land - deep thud
+            playLand() {
+                this.playNote(80, 0.15, 'sine', 0.3);
+                this.playNote(60, 0.2, 'triangle', 0.2);
+            }
+
+            // Dig block - crack sound
+            playDig() {
+                this.playNote(200, 0.05, 'square', 0.2);
+                this.playNote(300, 0.05, 'square', 0.15);
+                this.playNote(400, 0.08, 'square', 0.1);
+            }
+
+            // Collect special - rising arpeggio
+            playCollect() {
+                this.playNote(440, 0.08, 'square', 0.2);
+                setTimeout(() => this.playNote(660, 0.08, 'square', 0.18), 40);
+                setTimeout(() => this.playNote(880, 0.12, 'square', 0.15), 80);
+                setTimeout(() => this.playNote(1100, 0.15, 'square', 0.12), 120);
+            }
+
+            // Get hit - low painful sound
+            playHit() {
+                this.playNote(150, 0.15, 'sawtooth', 0.3);
+                this.playNote(100, 0.2, 'sawtooth', 0.25);
+                setTimeout(() => this.playNote(80, 0.25, 'sawtooth', 0.2), 80);
+            }
+
+            // Shield activate
+            playShield() {
+                this.playNote(523, 0.1, 'sine', 0.2);
+                this.playNote(659, 0.1, 'sine', 0.18);
+                this.playNote(784, 0.15, 'sine', 0.15);
+            }
+
+            // Clear row
+            playClearRow() {
+                const notes = [523, 659, 784, 1047];
+                notes.forEach((freq, i) => {
+                    setTimeout(() => this.playNote(freq, 0.1, 'square', 0.15), i * 50);
+                });
+            }
+
+            // Game over - collapse sound
+            playGameOver() {
+                const notes = [392, 349, 330, 294, 262, 220, 196, 165, 131, 98];
+                notes.forEach((freq, i) => {
+                    setTimeout(() => this.playNote(freq, 0.2, 'sawtooth', 0.2), i * 100);
+                });
+            }
+
+            // 8-bit intense BGM
+            startBGM() {
+                if (!this.enabled || !this.ctx || this.bgmPlaying) return;
+                this.bgmPlaying = true;
+                this.playBGMLoop();
+            }
+
+            playBGMLoop() {
+                if (!this.bgmPlaying) return;
+
+                const bpm = 140;
+                const beatDur = 60 / bpm;
+                const now = this.ctx.currentTime;
+
+                // Bass pattern - driving beat
+                const bassPattern = [1, 0, 0, 1, 0, 0, 1, 0, 0, 1, 0, 1, 0, 1, 0, 0];
+                // Kick pattern
+                const kickPattern = [1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0];
+                // Melody notes
+                const melodyNotes = [165, 196, 220, 262, 247, 220, 196, 165];
+
+                for (let i = 0; i < 16; i++) {
+                    const time = now + i * beatDur * 0.5;
+
+                    // Bass
+                    if (bassPattern[i]) {
+                        const osc = this.ctx.createOscillator();
+                        const gain = this.ctx.createGain();
+                        osc.type = 'triangle';
+                        osc.frequency.setValueAtTime(82, time);
+                        gain.gain.setValueAtTime(0.15, time);
+                        gain.gain.exponentialRampToValueAtTime(0.01, time + 0.2);
+                        osc.connect(gain);
+                        gain.connect(this.masterGain);
+                        osc.start(time);
+                        osc.stop(time + 0.2);
+                    }
+
+                    // Kick
+                    if (kickPattern[i]) {
+                        const osc = this.ctx.createOscillator();
+                        const gain = this.ctx.createGain();
+                        osc.type = 'sine';
+                        osc.frequency.setValueAtTime(150, time);
+                        osc.frequency.exponentialRampToValueAtTime(50, time + 0.1);
+                        gain.gain.setValueAtTime(0.25, time);
+                        gain.gain.exponentialRampToValueAtTime(0.01, time + 0.12);
+                        osc.connect(gain);
+                        gain.connect(this.masterGain);
+                        osc.start(time);
+                        osc.stop(time + 0.12);
+                    }
+
+                    // Hi-hat
+                    const osc = this.ctx.createOscillator();
+                    const gain = this.ctx.createGain();
+                    osc.type = 'square';
+                    osc.frequency.value = 800 + Math.random() * 200;
+                    gain.gain.setValueAtTime(0.04, time);
+                    gain.gain.exponentialRampToValueAtTime(0.01, time + 0.03);
+                    osc.connect(gain);
+                    gain.connect(this.masterGain);
+                    osc.start(time);
+                    osc.stop(time + 0.03);
+
+                    // Melody (every 2 beats)
+                    if (i % 2 === 0) {
+                        const noteIdx = Math.floor((i / 2 + Date.now() / 500) % melodyNotes.length);
+                        const osc = this.ctx.createOscillator();
+                        const gain = this.ctx.createGain();
+                        osc.type = 'square';
+                        osc.frequency.value = melodyNotes[noteIdx] * 2;
+                        gain.gain.setValueAtTime(0.06, time);
+                        gain.gain.exponentialRampToValueAtTime(0.01, time + beatDur * 0.4);
+                        osc.connect(gain);
+                        gain.connect(this.masterGain);
+                        osc.start(time);
+                        osc.stop(time + beatDur * 0.5);
+                    }
+                }
+
+                const loopDuration = 16 * beatDur * 0.5 * 1000;
+                this.bgmTimeout = setTimeout(() => this.playBGMLoop(), loopDuration);
+            }
+
+            stopBGM() {
+                this.bgmPlaying = false;
+                if (this.bgmTimeout) {
+                    clearTimeout(this.bgmTimeout);
+                    this.bgmTimeout = null;
+                }
+            }
+        }
+
+        // ==================== Game State ====================
+        const audio = new AudioSystem();
+
+        let gameRunning = false;
+        let score = 0;
+        let health = 100;
+        const maxHealth = 100;
+        let survivalTime = 0;
+        let lastTime = 0;
+        let shieldActive = false;
+        let shieldTimer = 0;
+        let digCooldown = 0;
+
+        // Grid: stores block data
+        // Each cell: null (empty) or { color, type }
+        let grid = [];
+
+        // Player
+        const player = {
+            col: Math.floor(COLS / 2),
+            row: PLAYER_ROW,
+            width: 1,
+            height: 2,
+            moving: 0, // -1 left, 0 none, 1 right
+            digging: false,
+            digTarget: null,
+            invincible: false,
+            invincibleTimer: 0
+        };
+
+        // Falling blocks
+        let fallingBlocks = [];
+
+        // Particles
+        let particles = [];
+
+        // Rain drops (background)
+        let rainDrops = [];
+
+        // Block spawn timer
+        let blockSpawnTimer = 0;
+        let blockSpawnInterval = 0.8;
+        let blockFallSpeed = 1;
+
+        // Block types
+        const BLOCK_TYPES = {
+            NORMAL: 'normal',
+            HEAL: 'heal',
+            CLEAR_ROW: 'clearRow',
+            SHIELD: 'shield'
+        };
+
+        const BLOCK_COLORS = [
+            { color: COLORS.red, dark: '#aa2222' },
+            { color: COLORS.orange, dark: '#aa6622' },
+            { color: COLORS.blue, dark: '#2266aa' },
+            { color: COLORS.purple, dark: '#7722aa' }
+        ];
+
+        // ==================== Game Functions ====================
+        function initGrid() {
+            grid = [];
+            for (let r = 0; r < ROWS; r++) {
+                grid[r] = [];
+                for (let c = 0; c < COLS; c++) {
+                    grid[r][c] = null;
+                }
+            }
+        }
+
+        function initRainDrops() {
+            rainDrops = [];
+            for (let i = 0; i < 100; i++) {
+                rainDrops.push({
+                    x: Math.random() * CANVAS_WIDTH,
+                    y: Math.random() * CANVAS_HEIGHT,
+                    speed: 100 + Math.random() * 150,
+                    length: 5 + Math.random() * 10,
+                    alpha: 0.1 + Math.random() * 0.2
+                });
+            }
+        }
+
+        function spawnBlock() {
+            const col = Math.floor(Math.random() * COLS);
+
+            // Determine block type
+            const rand = Math.random();
+            let type, colorData;
+
+            if (rand < 0.05) { // 5% heal
+                type = BLOCK_TYPES.HEAL;
+                colorData = { color: COLORS.green, dark: '#00aa55' };
+            } else if (rand < 0.08) { // 3% clear row
+                type = BLOCK_TYPES.CLEAR_ROW;
+                colorData = { color: COLORS.yellow, dark: '#aaaa00' };
+            } else if (rand < 0.11) { // 3% shield
+                type = BLOCK_TYPES.SHIELD;
+                colorData = { color: '#ff00ff', dark: '#aa00aa' };
+            } else {
+                type = BLOCK_TYPES.NORMAL;
+                colorData = BLOCK_COLORS[Math.floor(Math.random() * BLOCK_COLORS.length)];
+            }
+
+            fallingBlocks.push({
+                col: col,
+                y: -GRID_SIZE,
+                type: type,
+                color: colorData.color,
+                darkColor: colorData.dark,
+                speed: 150 + blockFallSpeed * 20
+            });
+        }
+
+        function createParticles(x, y, color, count) {
+            for (let i = 0; i < count; i++) {
+                const angle = Math.random() * Math.PI * 2;
+                const speed = 50 + Math.random() * 100;
+                particles.push({
+                    x: x + Math.random() * GRID_SIZE,
+                    y: y + Math.random() * GRID_SIZE,
+                    vx: Math.cos(angle) * speed,
+                    vy: Math.sin(angle) * speed - 50,
+                    size: 2 + Math.random() * 4,
+                    color: color,
+                    life: 0.5 + Math.random() * 0.5
+                });
+            }
+        }
+
+        function digBlock() {
+            if (digCooldown > 0) return;
+
+            // Find block in front of player
+            let digCol = player.col;
+            let digRow = player.row;
+
+            // Check the block at player level and one above
+            for (let r = digRow; r >= digRow - 1; r--) {
+                if (r >= 0 && r < ROWS && grid[r] && grid[r][digCol]) {
+                    // Dig this block
+                    const block = grid[r][digCol];
+                    createParticles(digCol * GRID_SIZE, r * GRID_SIZE, block.color, 10);
+                    grid[r][digCol] = null;
+                    audio.playDig();
+                    digCooldown = 0.3;
+
+                    // Apply special effects
+                    if (block.type === BLOCK_TYPES.HEAL) {
+                        health = Math.min(maxHealth, health + 20);
+                        audio.playCollect();
+                    } else if (block.type === BLOCK_TYPES.CLEAR_ROW) {
+                        clearRow(r);
+                        audio.playClearRow();
+                    } else if (block.type === BLOCK_TYPES.SHIELD) {
+                        shieldActive = true;
+                        shieldTimer = 5;
+                        audio.playShield();
+                    }
+
+                    return;
+                }
+            }
+        }
+
+        function clearRow(row) {
+            if (row < 0 || row >= ROWS) return;
+            for (let c = 0; c < COLS; c++) {
+                if (grid[row][c]) {
+                    createParticles(c * GRID_SIZE, row * GRID_SIZE, grid[row][c].color, 5);
+                    grid[row][c] = null;
+                }
+            }
+        }
+
+        function applyGravity() {
+            // Make blocks fall to fill gaps
+            for (let c = 0; c < COLS; c++) {
+                let writeRow = ROWS - 1;
+                for (let r = ROWS - 1; r >= 0; r--) {
+                    if (grid[r][c]) {
+                        if (r !== writeRow) {
+                            grid[writeRow][c] = grid[r][c];
+                            grid[r][c] = null;
+                        }
+                        writeRow--;
+                    }
+                }
+            }
+        }
+
+        function checkPlayerCollision() {
+            if (player.invincible) return false;
+
+            // Check if any block overlaps with player
+            for (let r = player.row; r < player.row + player.height; r++) {
+                if (r < 0 || r >= ROWS) continue;
+                if (grid[r] && grid[r][player.col]) {
+                    return true;
+                }
+            }
+            return false;
+        }
+
+        function findPlayerRow() {
+            // Find highest row player can stand on
+            for (let r = player.row; r < ROWS; r++) {
+                if (grid[r] && grid[r][player.col]) {
+                    return r - 1;
+                }
+            }
+            return ROWS - 1;
+        }
+
+        function isPlayerBlocked() {
+            // Check if player is trapped (block above)
+            const checkRow = player.row - 1;
+            if (checkRow >= 0 && grid[checkRow] && grid[checkRow][player.col]) {
+                return true;
+            }
+            return false;
+        }
+
+        function update(dt) {
+            survivalTime += dt;
+
+            // Increase difficulty
+            blockFallSpeed = 1 + survivalTime * 0.05;
+            blockSpawnInterval = Math.max(0.3, 0.8 - survivalTime * 0.01);
+
+            // Update shield
+            if (shieldActive) {
+                shieldTimer -= dt;
+                if (shieldTimer <= 0) {
+                    shieldActive = false;
+                }
+            }
+
+            // Update invincibility
+            if (player.invincible) {
+                player.invincibleTimer -= dt;
+                if (player.invincibleTimer <= 0) {
+                    player.invincible = false;
+                }
+            }
+
+            // Update dig cooldown
+            if (digCooldown > 0) {
+                digCooldown -= dt;
+            }
+
+            // Player movement
+            if (player.moving !== 0) {
+                const newCol = player.col + player.moving;
+                if (newCol >= 0 && newCol < COLS) {
+                    // Check if blocked by existing block
+                    let canMove = true;
+                    for (let r = player.row; r < player.row + player.height; r++) {
+                        if (r >= 0 && r < ROWS && grid[r] && grid[r][newCol]) {
+                            canMove = false;
+                            break;
+                        }
+                    }
+                    if (canMove) {
+                        player.col = newCol;
+                    }
+                }
+            }
+
+            // Digging
+            if (player.digging) {
+                digBlock();
+            }
+
+            // Spawn blocks
+            blockSpawnTimer += dt;
+            if (blockSpawnTimer >= blockSpawnInterval) {
+                spawnBlock();
+                blockSpawnTimer = 0;
+            }
+
+            // Update falling blocks
+            fallingBlocks.forEach(block => {
+                block.y += block.speed * dt;
+            });
+
+            // Check if falling blocks land
+            fallingBlocks = fallingBlocks.filter(block => {
+                const targetRow = Math.floor(block.y / GRID_SIZE);
+
+                // Check if block reached grid
+                if (targetRow >= ROWS - 1) {
+                    // Hit bottom
+                    const row = ROWS - 1;
+                    if (!grid[row][block.col]) {
+                        grid[row][block.col] = {
+                            color: block.color,
+                            darkColor: block.darkColor,
+                            type: block.type
+                        };
+                        audio.playLand();
+                    }
+                    return false;
+                }
+
+                // Check collision with existing blocks
+                for (let r = ROWS - 1; r >= targetRow; r--) {
+                    if (grid[r][block.col]) {
+                        // Land on top of this block
+                        const landRow = r - 1;
+                        if (landRow >= 0 && !grid[landRow][block.col]) {
+                            grid[landRow][block.col] = {
+                                color: block.color,
+                                darkColor: block.darkColor,
+                                type: block.type
+                            };
+                            audio.playLand();
+
+                            // Check if it hit player
+                            if (landRow >= player.row && landRow < player.row + player.height &&
+                                block.col === player.col) {
+                                if (!shieldActive && !player.invincible) {
+                                    health -= 15;
+                                    audio.playHit();
+                                    player.invincible = true;
+                                    player.invincibleTimer = 1;
+                                    createParticles(player.col * GRID_SIZE, player.row * GRID_SIZE, COLORS.red, 15);
+                                }
+                            }
+                        }
+                        return false;
+                    }
+                }
+
+                // Still falling
+                if (block.y > CANVAS_HEIGHT) {
+                    return false;
+                }
+                return true;
+            });
+
+            // Check if player is being crushed
+            if (checkPlayerCollision() && !shieldActive) {
+                health -= 20 * dt;
+                if (!player.invincible) {
+                    audio.playHit();
+                    player.invincible = true;
+                    player.invincibleTimer = 0.5;
+                }
+            }
+
+            // Apply gravity
+            applyGravity();
+
+            // Update player position (fall if no ground)
+            let groundRow = findPlayerRow();
+            if (player.row < groundRow) {
+                player.row = Math.min(player.row + 1, groundRow);
+            } else if (player.row > groundRow) {
+                player.row = groundRow;
+            }
+
+            // Update rain drops
+            rainDrops.forEach(drop => {
+                drop.y += drop.speed * dt;
+                if (drop.y > CANVAS_HEIGHT) {
+                    drop.y = -drop.length;
+                    drop.x = Math.random() * CANVAS_WIDTH;
+                }
+            });
+
+            // Update particles
+            particles.forEach(p => {
+                p.x += p.vx * dt;
+                p.y += p.vy * dt;
+                p.vy += 200 * dt; // gravity
+                p.life -= dt;
+            });
+            particles = particles.filter(p => p.life > 0);
+
+            // Score
+            score += dt * 10 * (1 + survivalTime * 0.1);
+
+            // Check game over
+            if (health <= 0) {
+                health = 0;
+                gameOver();
+            }
+        }
+
+        function render() {
+            // Clear background
+            ctx.fillStyle = COLORS.bg1;
+            ctx.fillRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
+
+            // Draw rain drops (background effect)
+            ctx.strokeStyle = COLORS.cyan;
+            rainDrops.forEach(drop => {
+                ctx.globalAlpha = drop.alpha;
+                ctx.beginPath();
+                ctx.moveTo(drop.x, drop.y);
+                ctx.lineTo(drop.x, drop.y + drop.length);
+                ctx.stroke();
+            });
+            ctx.globalAlpha = 1;
+
+            // Draw grid blocks
+            for (let r = 0; r < ROWS; r++) {
+                for (let c = 0; c < COLS; c++) {
+                    if (grid[r][c]) {
+                        drawBlock(c * GRID_SIZE, r * GRID_SIZE, grid[r][c]);
+                    }
+                }
+            }
+
+            // Draw falling blocks
+            fallingBlocks.forEach(block => {
+                drawBlock(block.col * GRID_SIZE, block.y, block, true);
+            });
+
+            // Draw particles
+            particles.forEach(p => {
+                ctx.globalAlpha = p.life;
+                ctx.fillStyle = p.color;
+                ctx.fillRect(Math.floor(p.x), Math.floor(p.y), p.size, p.size);
+            });
+            ctx.globalAlpha = 1;
+
+            // Draw player
+            drawPlayer();
+
+            // Draw UI
+            drawUI();
+
+            // Game over screen
+            if (!gameRunning && health <= 0) {
+                ctx.fillStyle = 'rgba(0, 0, 0, 0.85)';
+                ctx.fillRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
+
+                const glitchOffset = Math.sin(Date.now() / 50) * 3;
+
+                ctx.shadowColor = COLORS.red;
+                ctx.shadowBlur = 20;
+                ctx.fillStyle = COLORS.red;
+                ctx.font = 'bold 52px "Courier New", monospace';
+                ctx.textAlign = 'center';
+                ctx.fillText('GAME OVER', CANVAS_WIDTH / 2 + glitchOffset, CANVAS_HEIGHT / 2 - 60);
+
+                ctx.shadowColor = COLORS.cyan;
+                ctx.fillStyle = COLORS.cyan;
+                ctx.font = 'bold 28px "Courier New", monospace';
+                ctx.fillText(`SCORE: ${Math.floor(score)}`, CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2);
+
+                ctx.shadowBlur = 0;
+                ctx.fillStyle = COLORS.magenta;
+                ctx.font = '22px "Courier New", monospace';
+                ctx.fillText(`SURVIVED: ${survivalTime.toFixed(1)}s`, CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2 + 40);
+
+                ctx.fillStyle = COLORS.white;
+                ctx.font = '18px "Courier New", monospace';
+                ctx.fillText('Click to restart', CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2 + 100);
+            }
+        }
+
+        function drawBlock(x, y, block, falling = false) {
+            const size = GRID_SIZE;
+            const px = Math.floor(x);
+            const py = Math.floor(y);
+
+            // Special block glow effect
+            if (block.type !== BLOCK_TYPES.NORMAL) {
+                const glowIntensity = 0.3 + Math.sin(Date.now() / 100) * 0.2;
+                ctx.fillStyle = block.color;
+                ctx.globalAlpha = glowIntensity;
+                ctx.fillRect(px - 4, py - 4, size + 8, size + 8);
+                ctx.globalAlpha = 1;
+            }
+
+            // Block body
+            ctx.fillStyle = block.color;
+            ctx.fillRect(px, py, size, size);
+
+            // Dark edge (pixel style)
+            ctx.fillStyle = block.darkColor;
+            ctx.fillRect(px, py + size - 4, size, 4); // bottom
+            ctx.fillRect(px + size - 4, py, 4, size); // right
+
+            // Highlight
+            ctx.fillStyle = 'rgba(255,255,255,0.3)';
+            ctx.fillRect(px, py, size, 3);
+            ctx.fillRect(px, py, 3, size);
+
+            // Pixel detail
+            ctx.fillStyle = 'rgba(255,255,255,0.15)';
+            ctx.fillRect(px + 4, py + 4, 4, 4);
+            ctx.fillRect(px + 12, py + 8, 4, 4);
+
+            // Falling effect
+            if (falling) {
+                ctx.fillStyle = 'rgba(255,255,255,0.1)';
+                ctx.fillRect(px, py - 10, size, 10);
+            }
+        }
+
+        function drawPlayer() {
+            const px = player.col * GRID_SIZE;
+            const py = player.row * GRID_SIZE;
+
+            // Shield effect
+            if (shieldActive) {
+                const pulseSize = Math.sin(Date.now() / 100) * 5;
+                ctx.fillStyle = 'rgba(255, 0, 255, 0.3)';
+                ctx.fillRect(px - 8 - pulseSize, py - 8 - pulseSize, GRID_SIZE + 16 + pulseSize * 2, GRID_SIZE * 2 + 16 + pulseSize * 2);
+                ctx.strokeStyle = '#ff00ff';
+                ctx.lineWidth = 2;
+                ctx.strokeRect(px - 4, py - 4, GRID_SIZE + 8, GRID_SIZE * 2 + 8);
+            }
+
+            // Invincibility blink
+            if (player.invincible && Math.floor(Date.now() / 100) % 2 === 0) {
+                return;
+            }
+
+            // Player body (pixel person - 2 blocks tall)
+            // Head
+            ctx.fillStyle = COLORS.cyan;
+            ctx.shadowColor = COLORS.cyan;
+            ctx.shadowBlur = 10;
+            ctx.fillRect(px + 4, py, GRID_SIZE - 8, GRID_SIZE - 4);
+
+            // Eyes
+            ctx.fillStyle = '#fff';
+            ctx.fillRect(px + 6, py + 4, 3, 3);
+            ctx.fillRect(px + 11, py + 4, 3, 3);
+
+            // Body
+            ctx.fillStyle = COLORS.cyan;
+            ctx.fillRect(px + 2, py + GRID_SIZE, GRID_SIZE - 4, GRID_SIZE);
+
+            // Arms
+            ctx.fillRect(px - 2, py + GRID_SIZE + 2, 4, GRID_SIZE - 4);
+            ctx.fillRect(px + GRID_SIZE - 2, py + GRID_SIZE + 2, 4, GRID_SIZE - 4);
+
+            // Legs
+            ctx.fillRect(px + 4, py + GRID_SIZE * 2 - 6, 4, 6);
+            ctx.fillRect(px + GRID_SIZE - 8, py + GRID_SIZE * 2 - 6, 4, 6);
+
+            ctx.shadowBlur = 0;
+
+            // Glow effect
+            ctx.fillStyle = 'rgba(0, 245, 255, 0.2)';
+            ctx.fillRect(px - 4, py - 4, GRID_SIZE + 8, GRID_SIZE * 2 + 8);
+        }
+
+        function drawUI() {
+            // Score
+            ctx.shadowColor = COLORS.cyan;
+            ctx.shadowBlur = 10;
+            ctx.fillStyle = COLORS.cyan;
+            ctx.font = 'bold 24px "Courier New", monospace';
+            ctx.textAlign = 'left';
+            ctx.fillText(`SCORE: ${Math.floor(score)}`, 20, 35);
+            ctx.shadowBlur = 0;
+
+            // Time
+            ctx.fillStyle = COLORS.magenta;
+            ctx.font = 'bold 18px "Courier New", monospace';
+            ctx.fillText(`TIME: ${survivalTime.toFixed(1)}s`, 20, 60);
+
+            // Health bar
+            const barWidth = 200;
+            const barHeight = 20;
+            const barX = 20;
+            const barY = 75;
+
+            // Background
+            ctx.fillStyle = '#222';
+            ctx.fillRect(barX, barY, barWidth, barHeight);
+
+            // Health fill
+            const healthWidth = (health / maxHealth) * barWidth;
+            const healthColor = health > 60 ? COLORS.green :
+                               health > 30 ? COLORS.yellow : COLORS.red;
+            ctx.fillStyle = healthColor;
+            ctx.fillRect(barX, barY, healthWidth, barHeight);
+
+            // Border
+            ctx.strokeStyle = healthColor;
+            ctx.lineWidth = 2;
+            ctx.strokeRect(barX, barY, barWidth, barHeight);
+
+            // Glow
+            ctx.shadowColor = healthColor;
+            ctx.shadowBlur = 8;
+            ctx.strokeRect(barX, barY, barWidth, barHeight);
+            ctx.shadowBlur = 0;
+
+            // HP label
+            ctx.fillStyle = COLORS.white;
+            ctx.font = '14px "Courier New", monospace';
+            ctx.fillText('HP', barX + barWidth + 10, barY + 15);
+
+            // Shield indicator
+            if (shieldActive) {
+                ctx.fillStyle = '#ff00ff';
+                ctx.font = 'bold 16px "Courier New", monospace';
+                ctx.fillText(`SHIELD: ${shieldTimer.toFixed(1)}s`, CANVAS_WIDTH - 180, 35);
+            }
+
+            // Controls hint
+            ctx.fillStyle = 'rgba(255,255,255,0.5)';
+            ctx.font = '12px "Courier New", monospace';
+            ctx.textAlign = 'center';
+            ctx.fillText('A/D: Move | SPACE: Dig', CANVAS_WIDTH / 2, CANVAS_HEIGHT - 15);
+            ctx.textAlign = 'left';
+        }
+
+        function gameLoop(timestamp) {
+            if (!gameRunning) return;
+
+            const dt = Math.min((timestamp - lastTime) / 1000, 0.1);
+            lastTime = timestamp;
+
+            update(dt);
+            render();
+
+            requestAnimationFrame(gameLoop);
+        }
+
+        function startGame() {
+            audio.init();
+            audio.startBGM();
+            startScreen.style.display = 'none';
+            gameRunning = true;
+
+            // Reset state
+            score = 0;
+            health = 100;
+            survivalTime = 0;
+            shieldActive = false;
+            shieldTimer = 0;
+            digCooldown = 0;
+            blockSpawnTimer = 0;
+            blockSpawnInterval = 0.8;
+            blockFallSpeed = 1;
+
+            initGrid();
+            initRainDrops();
+            fallingBlocks = [];
+            particles = [];
+
+            player.col = Math.floor(COLS / 2);
+            player.row = PLAYER_ROW;
+            player.moving = 0;
+            player.digging = false;
+            player.invincible = false;
+            player.invincibleTimer = 0;
+
+            lastTime = performance.now();
+            requestAnimationFrame(gameLoop);
+        }
+
+        function gameOver() {
+            gameRunning = false;
+            audio.stopBGM();
+            audio.playGameOver();
+        }
+
+        function resetGame() {
+            audio.startBGM();
+            gameRunning = true;
+
+            score = 0;
+            health = 100;
+            survivalTime = 0;
+            shieldActive = false;
+            shieldTimer = 0;
+            digCooldown = 0;
+            blockSpawnTimer = 0;
+            blockSpawnInterval = 0.8;
+            blockFallSpeed = 1;
+
+            initGrid();
+            fallingBlocks = [];
+            particles = [];
+
+            player.col = Math.floor(COLS / 2);
+            player.row = PLAYER_ROW;
+            player.moving = 0;
+            player.digging = false;
+            player.invincible = false;
+            player.invincibleTimer = 0;
+
+            lastTime = performance.now();
+            requestAnimationFrame(gameLoop);
+        }
+
+        // ==================== Event Listeners ====================
+        startScreen.addEventListener('click', () => {
+            if (!gameRunning) startGame();
+        });
+
+        canvas.addEventListener('click', () => {
+            if (!gameRunning && health <= 0) {
+                resetGame();
+            }
+        });
+
+        document.addEventListener('keydown', (e) => {
+            if (!gameRunning) return;
+
+            switch (e.code) {
+                case 'ArrowLeft':
+                case 'KeyA':
+                    player.moving = -1;
+                    e.preventDefault();
+                    break;
+                case 'ArrowRight':
+                case 'KeyD':
+                    player.moving = 1;
+                    e.preventDefault();
+                    break;
+                case 'Space':
+                    player.digging = true;
+                    e.preventDefault();
+                    break;
+            }
+        });
+
+        document.addEventListener('keyup', (e) => {
+            switch (e.code) {
+                case 'ArrowLeft':
+                case 'KeyA':
+                    if (player.moving === -1) player.moving = 0;
+                    break;
+                case 'ArrowRight':
+                case 'KeyD':
+                    if (player.moving === 1) player.moving = 0;
+                    break;
+                case 'Space':
+                    player.digging = false;
+                    break;
+            }
+        });
+
+        // Initialize
+        initRainDrops();
+    </script>
+</body>
+</html>

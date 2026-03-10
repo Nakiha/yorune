@@ -1,0 +1,1208 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>BOUNCE DUNGEON - 弹跳地牢</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        body {
+            background: #0a0a0f;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            font-family: 'Courier New', monospace;
+            overflow: hidden;
+        }
+        #gameCanvas {
+            border: 4px solid #00f5ff;
+            image-rendering: pixelated;
+            box-shadow: 0 0 30px #00f5ff, inset 0 0 20px rgba(0, 245, 255, 0.1);
+        }
+        /* CRT Scanline Effect */
+        #crtOverlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            z-index: 100;
+            background: repeating-linear-gradient(
+                0deg,
+                rgba(0, 0, 0, 0.15),
+                rgba(0, 0, 0, 0.15) 1px,
+                transparent 1px,
+                transparent 3px
+            );
+        }
+        #startScreen {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: radial-gradient(ellipse at center, #1a1a2e 0%, #0a0a0f 50%, #05050a 100%);
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            z-index: 10;
+        }
+        #startScreen h1 {
+            font-size: 48px;
+            color: #00f5ff;
+            text-shadow: 0 0 10px #00f5ff, 0 0 20px #00f5ff, 0 0 40px #aa44ff;
+            animation: neonPulse 1.5s infinite;
+            text-align: center;
+            margin-bottom: 10px;
+            letter-spacing: 8px;
+        }
+        #startScreen .subtitle {
+            font-size: 20px;
+            color: #aa44ff;
+            text-shadow: 0 0 10px #aa44ff;
+            margin-bottom: 40px;
+            letter-spacing: 4px;
+        }
+        #startScreen .instructions {
+            color: #fff;
+            font-size: 14px;
+            text-align: center;
+            line-height: 2.2;
+            max-width: 500px;
+        }
+        #startScreen .instructions .key {
+            display: inline-block;
+            padding: 3px 10px;
+            border: 2px solid #ffff00;
+            color: #ffff00;
+            margin: 0 4px;
+            box-shadow: 0 0 8px #ffff00;
+            font-size: 12px;
+        }
+        #startScreen .click-hint {
+            font-size: 24px;
+            color: #ffff00;
+            text-shadow: 0 0 10px #ffff00;
+            animation: blink 1s infinite;
+            margin-top: 40px;
+        }
+        @keyframes neonPulse {
+            0%, 100% {
+                transform: scale(1);
+                text-shadow: 0 0 10px #00f5ff, 0 0 20px #00f5ff, 0 0 40px #aa44ff;
+            }
+            50% {
+                transform: scale(1.02);
+                text-shadow: 0 0 20px #00f5ff, 0 0 40px #00f5ff, 0 0 60px #aa44ff, 0 0 80px #aa44ff;
+            }
+        }
+        @keyframes blink {
+            0%, 50% { opacity: 1; }
+            51%, 100% { opacity: 0.3; }
+        }
+        .pixel-border {
+            padding: 25px 40px;
+            border: 4px solid #aa44ff;
+            box-shadow: 0 0 20px #aa44ff, inset 0 0 20px rgba(170, 68, 255, 0.1);
+        }
+        .legend {
+            display: flex;
+            justify-content: center;
+            gap: 15px;
+            margin-top: 15px;
+            flex-wrap: wrap;
+        }
+        .legend-item {
+            display: flex;
+            align-items: center;
+            gap: 5px;
+            font-size: 11px;
+        }
+        .legend-color {
+            width: 12px;
+            height: 12px;
+            border: 1px solid #fff;
+        }
+    </style>
+</head>
+<body>
+    <div id="crtOverlay"></div>
+    <div id="startScreen">
+        <h1>BOUNCE DUNGEON</h1>
+        <div class="subtitle">- 弹跳地牢 -</div>
+        <div class="pixel-border">
+            <div class="instructions">
+                <div style="color: #00f5ff; margin-bottom: 12px;">[ 地牢弹跳探索 ]</div>
+                <div>自动弹跳，左右移动控制方向</div>
+                <div><span class="key">A/D</span> 或 <span class="key">Arrow Keys</span> 水平移动</div>
+                <div>踩踏敌人消灭得分，收集钥匙开门</div>
+                <div>躲避尖刺陷阱，向上攀登!</div>
+                <br>
+                <div style="color: #ffff00;">
+                    每层难度递增，更多陷阱和敌人!<br>
+                    掉落到底部 = 游戏结束
+                </div>
+                <div class="legend">
+                    <div class="legend-item"><div class="legend-color" style="background: #00f5ff;"></div> 玩家</div>
+                    <div class="legend-item"><div class="legend-color" style="background: #666677;"></div> 平台</div>
+                    <div class="legend-item"><div class="legend-color" style="background: #ff4444;"></div> 敌人</div>
+                    <div class="legend-item"><div class="legend-color" style="background: #ffff00;"></div> 钥匙</div>
+                    <div class="legend-item"><div class="legend-color" style="background: #aa44ff;"></div> 门</div>
+                    <div class="legend-item"><div class="legend-color" style="background: #888899;"></div> 尖刺</div>
+                </div>
+            </div>
+        </div>
+        <div class="click-hint">>>> 点击开始游戏 <<<</div>
+    </div>
+    <canvas id="gameCanvas"></canvas>
+
+    <script>
+        // ==================== Constants ====================
+        const COLORS = {
+            bg: '#0a0a0f',
+            bg2: '#12121a',
+            bg3: '#1a1a2e',
+            cyan: '#00f5ff',
+            magenta: '#ff4da6',
+            yellow: '#ffff00',
+            green: '#00ff88',
+            white: '#ffffff',
+            red: '#ff4444',
+            orange: '#ff8833',
+            purple: '#aa44ff',
+            gray: '#666677',
+            darkGray: '#333344',
+            spike: '#888899'
+        };
+
+        const PIXEL_SIZE = 4;
+        const CANVAS_WIDTH = 800;
+        const CANVAS_HEIGHT = 600;
+        const GRAVITY = 1200;
+        const BOUNCE_FORCE = -650;
+        const MOVE_SPEED = 280;
+
+        // ==================== Canvas Setup ====================
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+        const startScreen = document.getElementById('startScreen');
+
+        canvas.width = CANVAS_WIDTH;
+        canvas.height = CANVAS_HEIGHT;
+
+        // ==================== Audio System ====================
+        class AudioSystem {
+            constructor() {
+                this.ctx = null;
+                this.enabled = false;
+                this.masterGain = null;
+                this.bgmPlaying = false;
+                this.bgmTimeout = null;
+            }
+
+            init() {
+                if (this.ctx) return;
+                this.ctx = new (window.AudioContext || window.webkitAudioContext)();
+                this.masterGain = this.ctx.createGain();
+                this.masterGain.gain.value = 0.4;
+                this.masterGain.connect(this.ctx.destination);
+                this.enabled = true;
+            }
+
+            playNote(freq, duration, type = 'square', volume = 0.25) {
+                if (!this.enabled || !this.ctx) return;
+                const osc = this.ctx.createOscillator();
+                const gain = this.ctx.createGain();
+                osc.type = type;
+                osc.frequency.value = freq;
+                gain.gain.setValueAtTime(volume, this.ctx.currentTime);
+                gain.gain.exponentialRampToValueAtTime(0.01, this.ctx.currentTime + duration);
+                osc.connect(gain);
+                gain.connect(this.masterGain);
+                osc.start();
+                osc.stop(this.ctx.currentTime + duration);
+            }
+
+            // Bounce - boing sound
+            playBounce() {
+                this.playNote(200, 0.05, 'square', 0.3);
+                setTimeout(() => this.playNote(400, 0.08, 'square', 0.25), 30);
+                setTimeout(() => this.playNote(300, 0.06, 'square', 0.2), 60);
+            }
+
+            // Kill enemy - explosion
+            playKill() {
+                this.playNote(150, 0.1, 'sawtooth', 0.3);
+                this.playNote(100, 0.15, 'square', 0.25);
+                setTimeout(() => this.playNote(80, 0.1, 'sawtooth', 0.2), 50);
+            }
+
+            // Collect key - ding dong
+            playKey() {
+                const notes = [523, 659, 784, 1047];
+                notes.forEach((freq, i) => {
+                    setTimeout(() => this.playNote(freq, 0.12, 'sine', 0.2), i * 80);
+                });
+            }
+
+            // Open door - mystery
+            playDoor() {
+                this.playNote(220, 0.15, 'triangle', 0.25);
+                this.playNote(330, 0.15, 'triangle', 0.22);
+                this.playNote(440, 0.2, 'triangle', 0.18);
+                this.playNote(550, 0.25, 'triangle', 0.15);
+            }
+
+            // Fall - descending
+            playFall() {
+                const notes = [400, 350, 300, 250, 200, 150, 100];
+                notes.forEach((freq, i) => {
+                    setTimeout(() => this.playNote(freq, 0.15, 'sawtooth', 0.2), i * 80);
+                });
+            }
+
+            // Level complete - victory fanfare
+            playVictory() {
+                const melody = [392, 494, 587, 784, 659, 784];
+                melody.forEach((freq, i) => {
+                    setTimeout(() => this.playNote(freq, 0.15, 'square', 0.2), i * 100);
+                });
+            }
+
+            // Game over
+            playGameOver() {
+                const notes = [392, 349, 330, 294, 262, 220, 196, 165];
+                notes.forEach((freq, i) => {
+                    setTimeout(() => this.playNote(freq, 0.25, 'sawtooth', 0.2), i * 120);
+                });
+            }
+
+            // Adventure BGM
+            startBGM() {
+                if (!this.enabled || !this.ctx || this.bgmPlaying) return;
+                this.bgmPlaying = true;
+                this.playBGMLoop();
+            }
+
+            playBGMLoop() {
+                if (!this.bgmPlaying) return;
+
+                const now = this.ctx.currentTime;
+                const bpm = 100;
+
+                // Adventure melody
+                const melody = [
+                    { note: 330, dur: 0.15 }, { note: 392, dur: 0.15 }, { note: 440, dur: 0.15 }, { note: 392, dur: 0.15 },
+                    { note: 330, dur: 0.15 }, { note: 294, dur: 0.15 }, { note: 262, dur: 0.3 },
+                    { note: 294, dur: 0.15 }, { note: 330, dur: 0.15 }, { note: 392, dur: 0.15 }, { note: 440, dur: 0.15 },
+                    { note: 494, dur: 0.15 }, { note: 440, dur: 0.15 }, { note: 392, dur: 0.3 },
+                ];
+
+                // Bass
+                const bass = [
+                    { note: 165, dur: 0.3 }, { note: 196, dur: 0.3 },
+                    { note: 220, dur: 0.3 }, { note: 196, dur: 0.3 },
+                ];
+
+                let time = now;
+
+                // Play melody
+                melody.forEach(n => {
+                    const osc = this.ctx.createOscillator();
+                    const gain = this.ctx.createGain();
+                    osc.type = 'square';
+                    osc.frequency.value = n.note;
+                    osc.connect(gain);
+                    gain.connect(this.masterGain);
+                    gain.gain.setValueAtTime(0.08, time);
+                    gain.gain.exponentialRampToValueAtTime(0.01, time + n.dur * 0.8);
+                    osc.start(time);
+                    osc.stop(time + n.dur);
+                    time += n.dur;
+                });
+
+                time = now;
+                // Play bass
+                bass.forEach(n => {
+                    const osc = this.ctx.createOscillator();
+                    const gain = this.ctx.createGain();
+                    osc.type = 'triangle';
+                    osc.frequency.value = n.note;
+                    osc.connect(gain);
+                    gain.connect(this.masterGain);
+                    gain.gain.setValueAtTime(0.12, time);
+                    gain.gain.exponentialRampToValueAtTime(0.01, time + n.dur * 0.9);
+                    osc.start(time);
+                    osc.stop(time + n.dur);
+                    time += n.dur;
+                });
+
+                // Drum-like percussion
+                for (let i = 0; i < 16; i++) {
+                    const percTime = now + i * 0.15;
+                    if (i % 4 === 0) {
+                        // Kick-like
+                        const kick = this.ctx.createOscillator();
+                        const kickGain = this.ctx.createGain();
+                        kick.type = 'sine';
+                        kick.frequency.setValueAtTime(150, percTime);
+                        kick.frequency.exponentialRampToValueAtTime(50, percTime + 0.1);
+                        kick.connect(kickGain);
+                        kickGain.connect(this.masterGain);
+                        kickGain.gain.setValueAtTime(0.15, percTime);
+                        kickGain.gain.exponentialRampToValueAtTime(0.01, percTime + 0.1);
+                        kick.start(percTime);
+                        kick.stop(percTime + 0.1);
+                    }
+                }
+
+                const loopDuration = 4.2;
+                this.bgmTimeout = setTimeout(() => this.playBGMLoop(), loopDuration * 1000);
+            }
+
+            stopBGM() {
+                this.bgmPlaying = false;
+                if (this.bgmTimeout) {
+                    clearTimeout(this.bgmTimeout);
+                    this.bgmTimeout = null;
+                }
+            }
+        }
+
+        // ==================== Game State ====================
+        const audio = new AudioSystem();
+
+        let gameState = {
+            running: false,
+            score: 0,
+            floor: 1,
+            keys: 0,
+            keysRequired: 3,
+            doorOpen: false,
+            transitioning: false
+        };
+
+        // Player
+        let player = {
+            x: 400,
+            y: 500,
+            vx: 0,
+            vy: 0,
+            width: 16,
+            height: 16,
+            onGround: false,
+            bounceCount: 0
+        };
+
+        // Camera
+        let camera = {
+            y: 0,
+            targetY: 0
+        };
+
+        // Level elements
+        let platforms = [];
+        let enemies = [];
+        let keys = [];
+        let door = null;
+        let spikes = [];
+        let particles = [];
+        let bgTiles = [];
+
+        // Input
+        const keysPressed = {};
+
+        // Timing
+        let lastTime = 0;
+
+        // ==================== Level Generation ====================
+        function generateLevel(floor) {
+            platforms = [];
+            enemies = [];
+            keys = [];
+            spikes = [];
+            door = null;
+            particles = [];
+
+            // Ground platform
+            platforms.push({
+                x: 0,
+                y: 580,
+                width: CANVAS_WIDTH,
+                height: 40,
+                type: 'ground'
+            });
+
+            // Generate platforms procedurally
+            const platformCount = 8 + floor * 2;
+            const levelHeight = 2000 + floor * 500;
+            let lastY = 520;
+            let lastX = 400;
+
+            for (let i = 0; i < platformCount; i++) {
+                const y = lastY - (80 + Math.random() * 60);
+                let x;
+
+                // Ensure platforms are reachable
+                const maxJumpX = 180;
+                x = lastX + (Math.random() - 0.5) * maxJumpX * 2;
+                x = Math.max(30, Math.min(CANVAS_WIDTH - 130, x));
+
+                const width = 80 + Math.random() * 60;
+                const type = Math.random() < 0.2 && i > 2 ? 'moving' : 'static';
+
+                platforms.push({
+                    x, y, width,
+                    height: 16,
+                    type,
+                    moveDir: 1,
+                    moveSpeed: 50 + Math.random() * 50,
+                    originalX: x
+                });
+
+                // Add spikes on some platforms
+                if (Math.random() < 0.15 + floor * 0.05 && i > 2) {
+                    const spikeCount = 1 + Math.floor(Math.random() * 2);
+                    for (let s = 0; s < spikeCount; s++) {
+                        spikes.push({
+                            x: x + 10 + Math.random() * (width - 30),
+                            y: y - 12,
+                            width: 16,
+                            height: 12
+                        });
+                    }
+                }
+
+                // Add enemies on some platforms
+                if (Math.random() < 0.25 + floor * 0.08 && i > 1) {
+                    const enemyType = Math.random() < 0.6 ? 'slime' : 'skull';
+                    enemies.push({
+                        x: x + width / 2,
+                        y: y - 16,
+                        width: 16,
+                        height: 16,
+                        type: enemyType,
+                        vx: (Math.random() - 0.5) * 60,
+                        platformLeft: x,
+                        platformRight: x + width,
+                        alive: true,
+                        pulse: Math.random() * Math.PI * 2
+                    });
+                }
+
+                lastY = y;
+                lastX = x;
+            }
+
+            // Place keys on different platforms
+            const keyPlatforms = platforms.filter((_, i) => i > 2 && i < platforms.length - 2);
+            const shuffledPlatforms = keyPlatforms.sort(() => Math.random() - 0.5).slice(0, 3);
+
+            shuffledPlatforms.forEach(p => {
+                keys.push({
+                    x: p.x + p.width / 2,
+                    y: p.y - 24,
+                    width: 12,
+                    height: 16,
+                    collected: false,
+                    pulse: Math.random() * Math.PI * 2
+                });
+            });
+
+            // Door at top
+            const topPlatform = platforms[platforms.length - 1];
+            door = {
+                x: topPlatform.x + topPlatform.width / 2 - 16,
+                y: topPlatform.y - 40,
+                width: 32,
+                height: 40,
+                open: false,
+                pulse: 0
+            };
+
+            // Set camera and player position
+            player.x = 400;
+            player.y = 540;
+            player.vx = 0;
+            player.vy = 0;
+            camera.y = 0;
+            camera.targetY = 0;
+
+            // Generate background tiles
+            generateBgTiles(levelHeight);
+        }
+
+        function generateBgTiles(height) {
+            bgTiles = [];
+            const tileSpacing = 80;
+
+            for (let y = 0; y > -height; y -= tileSpacing) {
+                for (let x = 0; x < CANVAS_WIDTH; x += tileSpacing) {
+                    if (Math.random() < 0.3) {
+                        bgTiles.push({
+                            x: x + (Math.random() - 0.5) * 20,
+                            y: y + (Math.random() - 0.5) * 20,
+                            size: 8 + Math.random() * 8,
+                            shade: Math.random() * 0.3
+                        });
+                    }
+                }
+            }
+        }
+
+        // ==================== Particle System ====================
+        function createParticles(x, y, color, count, speed = 100) {
+            for (let i = 0; i < count; i++) {
+                const angle = Math.random() * Math.PI * 2;
+                const spd = speed + Math.random() * speed;
+                particles.push({
+                    x, y,
+                    vx: Math.cos(angle) * spd,
+                    vy: Math.sin(angle) * spd,
+                    size: 3 + Math.random() * 4,
+                    color,
+                    life: 0.5 + Math.random() * 0.5
+                });
+            }
+        }
+
+        function createBounceParticles(x, y) {
+            for (let i = 0; i < 8; i++) {
+                const angle = Math.PI + (Math.random() - 0.5) * Math.PI;
+                const speed = 80 + Math.random() * 60;
+                particles.push({
+                    x, y,
+                    vx: Math.cos(angle) * speed,
+                    vy: Math.sin(angle) * speed,
+                    size: 2 + Math.random() * 3,
+                    color: COLORS.cyan,
+                    life: 0.3 + Math.random() * 0.2
+                });
+            }
+        }
+
+        // ==================== Drawing Functions ====================
+        function drawPixelRect(x, y, w, h, color) {
+            ctx.fillStyle = color;
+            ctx.fillRect(Math.floor(x), Math.floor(y), Math.floor(w), Math.floor(h));
+        }
+
+        function drawBrickPlatform(x, y, width, height) {
+            // Main brick color
+            ctx.fillStyle = COLORS.gray;
+            ctx.fillRect(Math.floor(x), Math.floor(y), Math.floor(width), Math.floor(height));
+
+            // Brick pattern
+            ctx.fillStyle = COLORS.darkGray;
+            const brickW = 16;
+            const brickH = 8;
+
+            for (let bx = 0; bx < width; bx += brickW) {
+                for (let by = 0; by < height; by += brickH) {
+                    const offset = (Math.floor(by / brickH) % 2) * (brickW / 2);
+                    ctx.fillRect(
+                        Math.floor(x + bx + offset),
+                        Math.floor(y + by),
+                        1, brickH
+                    );
+                    ctx.fillRect(
+                        Math.floor(x + bx),
+                        Math.floor(y + by),
+                        brickW, 1
+                    );
+                }
+            }
+
+            // Highlight
+            ctx.fillStyle = 'rgba(255,255,255,0.15)';
+            ctx.fillRect(Math.floor(x), Math.floor(y), Math.floor(width), 2);
+        }
+
+        function drawPlayer() {
+            const px = Math.floor(player.x - camera.y * 0);
+            const py = Math.floor(player.y);
+
+            // Glow effect
+            ctx.fillStyle = 'rgba(0, 245, 255, 0.3)';
+            ctx.fillRect(px - 4, py - 4, player.width + 8, player.height + 8);
+
+            ctx.fillStyle = 'rgba(0, 245, 255, 0.5)';
+            ctx.fillRect(px - 2, py - 2, player.width + 4, player.height + 4);
+
+            // Main body
+            ctx.fillStyle = COLORS.cyan;
+            ctx.fillRect(px, py, player.width, player.height);
+
+            // Inner glow
+            ctx.fillStyle = 'rgba(255,255,255,0.6)';
+            ctx.fillRect(px + 3, py + 3, 4, 4);
+
+            // Eyes
+            const eyeOffset = player.vx > 0 ? 2 : player.vx < 0 ? -2 : 0;
+            ctx.fillStyle = '#fff';
+            ctx.fillRect(px + 4 + eyeOffset, py + 5, 3, 3);
+            ctx.fillRect(px + 9 + eyeOffset, py + 5, 3, 3);
+
+            ctx.fillStyle = '#000';
+            ctx.fillRect(px + 5 + eyeOffset, py + 6, 2, 2);
+            ctx.fillRect(px + 10 + eyeOffset, py + 6, 2, 2);
+        }
+
+        function drawEnemy(e) {
+            if (!e.alive) return;
+
+            const pulse = Math.sin(e.pulse) * 2;
+            const px = Math.floor(e.x - e.width / 2);
+            const py = Math.floor(e.y - e.height / 2);
+
+            // Glow
+            ctx.fillStyle = 'rgba(255, 68, 68, 0.4)';
+            ctx.fillRect(px - 2 - pulse, py - 2 - pulse, e.width + 4 + pulse * 2, e.height + 4 + pulse * 2);
+
+            if (e.type === 'slime') {
+                // Slime - blob shape
+                ctx.fillStyle = COLORS.red;
+                ctx.fillRect(px + 2, py, e.width - 4, e.height);
+                ctx.fillRect(px, py + 4, e.width, e.height - 8);
+
+                // Eyes
+                ctx.fillStyle = '#fff';
+                ctx.fillRect(px + 3, py + 4, 4, 4);
+                ctx.fillRect(px + 9, py + 4, 4, 4);
+
+                ctx.fillStyle = '#000';
+                ctx.fillRect(px + 5, py + 5, 2, 2);
+                ctx.fillRect(px + 11, py + 5, 2, 2);
+            } else {
+                // Skull
+                ctx.fillStyle = COLORS.red;
+                ctx.fillRect(px + 2, py, e.width - 4, e.height - 4);
+                ctx.fillRect(px, py + 4, e.width, e.height - 8);
+                ctx.fillRect(px + 4, py + e.height - 4, 8, 4);
+
+                // Eye sockets
+                ctx.fillStyle = '#000';
+                ctx.fillRect(px + 3, py + 4, 4, 5);
+                ctx.fillRect(px + 9, py + 4, 4, 5);
+
+                // Nose
+                ctx.fillRect(px + 7, py + 9, 2, 2);
+            }
+        }
+
+        function drawKey(k) {
+            if (k.collected) return;
+
+            const pulse = Math.sin(k.pulse) * 3;
+            const px = Math.floor(k.x - k.width / 2);
+            const py = Math.floor(k.y - k.height / 2 - pulse);
+
+            // Glow
+            ctx.fillStyle = 'rgba(255, 255, 0, 0.4)';
+            ctx.fillRect(px - 4, py - 4, k.width + 8, k.height + 8);
+
+            // Key shape
+            ctx.fillStyle = COLORS.yellow;
+            // Head (circle-ish)
+            ctx.fillRect(px + 2, py, 8, 8);
+            ctx.fillRect(px, py + 2, 12, 4);
+            // Shaft
+            ctx.fillRect(px + 4, py + 6, 4, 10);
+            // Teeth
+            ctx.fillRect(px + 6, py + 12, 4, 2);
+            ctx.fillRect(px + 6, py + 8, 3, 2);
+
+            // Sparkle
+            ctx.fillStyle = '#fff';
+            ctx.fillRect(px + 3, py + 2, 2, 2);
+        }
+
+        function drawDoor() {
+            if (!door) return;
+
+            const px = Math.floor(door.x);
+            const py = Math.floor(door.y);
+
+            // Door frame
+            ctx.fillStyle = door.open ? '#8844ff' : COLORS.purple;
+            ctx.fillRect(px - 4, py - 4, door.width + 8, door.height + 8);
+
+            // Door
+            ctx.fillStyle = door.open ? '#bb66ff' : '#6633aa';
+            ctx.fillRect(px, py, door.width, door.height);
+
+            // Portal effect when open
+            if (door.open) {
+                const portalPulse = Math.sin(door.pulse * 3) * 0.3 + 0.7;
+                ctx.fillStyle = `rgba(170, 68, 255, ${portalPulse})`;
+                ctx.fillRect(px + 4, py + 4, door.width - 8, door.height - 8);
+
+                // Sparkles
+                if (Math.random() > 0.7) {
+                    ctx.fillStyle = '#fff';
+                    ctx.fillRect(
+                        px + 4 + Math.random() * (door.width - 8),
+                        py + 4 + Math.random() * (door.height - 8),
+                        2, 2
+                    );
+                }
+            } else {
+                // Lock
+                ctx.fillStyle = COLORS.yellow;
+                ctx.fillRect(px + 12, py + 20, 8, 8);
+            }
+
+            // Pillars
+            ctx.fillStyle = COLORS.purple;
+            ctx.fillRect(px - 4, py - 8, 4, door.height + 16);
+            ctx.fillRect(px + door.width, py - 8, 4, door.height + 16);
+        }
+
+        function drawSpike(s) {
+            const px = Math.floor(s.x);
+            const py = Math.floor(s.y);
+
+            // Spike (triangle made of pixels)
+            ctx.fillStyle = COLORS.spike;
+            // Base
+            ctx.fillRect(px, py + s.height - 4, s.width, 4);
+            // Middle
+            ctx.fillRect(px + 2, py + 4, s.width - 4, s.height - 8);
+            // Tip
+            ctx.fillRect(px + 6, py, 4, 4);
+
+            // Highlight
+            ctx.fillStyle = 'rgba(255,255,255,0.3)';
+            ctx.fillRect(px + 6, py, 2, 4);
+        }
+
+        function drawBackground() {
+            // Dark background
+            ctx.fillStyle = COLORS.bg;
+            ctx.fillRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
+
+            // Background tiles (brick pattern)
+            bgTiles.forEach(tile => {
+                const screenY = tile.y - camera.y;
+                if (screenY > -50 && screenY < CANVAS_HEIGHT + 50) {
+                    ctx.fillStyle = `rgba(30, 30, 46, ${tile.shade + 0.1})`;
+                    ctx.fillRect(
+                        Math.floor(tile.x),
+                        Math.floor(screenY),
+                        Math.floor(tile.size),
+                        Math.floor(tile.size)
+                    );
+                }
+            });
+
+            // Atmospheric gradient
+            const gradient = ctx.createLinearGradient(0, 0, 0, CANVAS_HEIGHT);
+            gradient.addColorStop(0, 'rgba(10, 10, 15, 0.3)');
+            gradient.addColorStop(0.5, 'rgba(10, 10, 15, 0)');
+            gradient.addColorStop(1, 'rgba(10, 10, 15, 0.5)');
+            ctx.fillStyle = gradient;
+            ctx.fillRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
+        }
+
+        function drawUI() {
+            // Score
+            ctx.shadowColor = COLORS.cyan;
+            ctx.shadowBlur = 10;
+            ctx.fillStyle = COLORS.cyan;
+            ctx.font = 'bold 24px "Courier New", monospace';
+            ctx.textAlign = 'left';
+            ctx.fillText(`SCORE: ${gameState.score}`, 20, 35);
+            ctx.shadowBlur = 0;
+
+            // Floor
+            ctx.fillStyle = COLORS.purple;
+            ctx.font = 'bold 18px "Courier New", monospace';
+            ctx.fillText(`FLOOR: ${gameState.floor}`, 20, 60);
+
+            // Keys
+            ctx.fillStyle = COLORS.yellow;
+            ctx.font = 'bold 18px "Courier New", monospace';
+            const keyText = `KEYS: ${gameState.keys}/${gameState.keysRequired}`;
+            ctx.fillText(keyText, 20, 85);
+
+            // Draw key icons
+            for (let i = 0; i < gameState.keysRequired; i++) {
+                ctx.fillStyle = i < gameState.keys ? COLORS.yellow : '#333';
+                ctx.fillRect(140 + i * 20, 72, 12, 12);
+            }
+
+            // Controls hint
+            ctx.fillStyle = 'rgba(255,255,255,0.5)';
+            ctx.font = '12px "Courier New", monospace';
+            ctx.textAlign = 'center';
+            ctx.fillText('A/D or Arrows: Move | Reach the door!', CANVAS_WIDTH / 2, CANVAS_HEIGHT - 15);
+            ctx.textAlign = 'left';
+        }
+
+        function drawParticles() {
+            particles.forEach(p => {
+                ctx.globalAlpha = p.life;
+                ctx.fillStyle = p.color;
+                ctx.fillRect(
+                    Math.floor(p.x - p.size / 2),
+                    Math.floor(p.y - p.size / 2),
+                    Math.floor(p.size),
+                    Math.floor(p.size)
+                );
+            });
+            ctx.globalAlpha = 1;
+        }
+
+        // ==================== Game Logic ====================
+        function update(dt) {
+            if (gameState.transitioning) return;
+
+            // Input
+            if (keysPressed['ArrowLeft'] || keysPressed['KeyA']) {
+                player.vx = -MOVE_SPEED;
+            } else if (keysPressed['ArrowRight'] || keysPressed['KeyD']) {
+                player.vx = MOVE_SPEED;
+            } else {
+                player.vx *= 0.8;
+            }
+
+            // Gravity
+            player.vy += GRAVITY * dt;
+
+            // Apply velocity
+            player.x += player.vx * dt;
+            player.y += player.vy * dt;
+
+            // Wall collision
+            player.x = Math.max(0, Math.min(CANVAS_WIDTH - player.width, player.x));
+
+            // Platform collision (from top only)
+            player.onGround = false;
+            platforms.forEach(p => {
+                // Update moving platforms
+                if (p.type === 'moving') {
+                    p.x += p.moveDir * p.moveSpeed * dt;
+                    if (p.x < 0 || p.x + p.width > CANVAS_WIDTH) {
+                        p.moveDir *= -1;
+                    }
+                }
+
+                // Check collision from above
+                if (player.vy > 0 &&
+                    player.x + player.width > p.x &&
+                    player.x < p.x + p.width &&
+                    player.y + player.height > p.y &&
+                    player.y + player.height < p.y + p.height + player.vy * dt + 10) {
+
+                    player.y = p.y - player.height;
+                    player.vy = BOUNCE_FORCE;
+                    player.onGround = true;
+                    player.bounceCount++;
+
+                    // Bounce particles
+                    createBounceParticles(player.x + player.width / 2, player.y + player.height);
+                    audio.playBounce();
+                }
+            });
+
+            // Enemy collision
+            enemies.forEach(e => {
+                if (!e.alive) return;
+
+                // Update enemy movement
+                e.pulse += dt * 4;
+                e.x += e.vx * dt;
+
+                // Keep on platform
+                if (e.x < e.platformLeft + 8 || e.x > e.platformRight - 8) {
+                    e.vx *= -1;
+                }
+
+                // Check player collision
+                const dx = Math.abs((player.x + player.width / 2) - e.x);
+                const dy = Math.abs((player.y + player.height / 2) - e.y);
+
+                if (dx < 14 && dy < 14) {
+                    if (player.vy > 0 && player.y + player.height < e.y + 4) {
+                        // Stomp enemy
+                        e.alive = false;
+                        player.vy = BOUNCE_FORCE * 0.8;
+                        gameState.score += 50;
+                        createParticles(e.x, e.y, COLORS.red, 15, 120);
+                        audio.playKill();
+                    } else {
+                        // Hit from side - push player back
+                        player.vx = player.x < e.x ? -200 : 200;
+                        player.vy = -200;
+                    }
+                }
+            });
+
+            // Key collision
+            keys.forEach(k => {
+                if (k.collected) return;
+                k.pulse += dt * 5;
+
+                const dx = Math.abs((player.x + player.width / 2) - k.x);
+                const dy = Math.abs((player.y + player.height / 2) - k.y);
+
+                if (dx < 16 && dy < 16) {
+                    k.collected = true;
+                    gameState.keys++;
+                    gameState.score += 100;
+                    createParticles(k.x, k.y, COLORS.yellow, 20, 100);
+                    audio.playKey();
+
+                    // Check if all keys collected
+                    if (gameState.keys >= gameState.keysRequired) {
+                        door.open = true;
+                        audio.playDoor();
+                    }
+                }
+            });
+
+            // Door collision
+            if (door && door.open) {
+                door.pulse += dt * 4;
+
+                const dx = Math.abs((player.x + player.width / 2) - (door.x + door.width / 2));
+                const dy = Math.abs((player.y + player.height / 2) - (door.y + door.height / 2));
+
+                if (dx < 20 && dy < 25) {
+                    nextLevel();
+                }
+            }
+
+            // Spike collision
+            spikes.forEach(s => {
+                const dx = Math.abs((player.x + player.width / 2) - (s.x + s.width / 2));
+                const dy = Math.abs((player.y + player.height / 2) - (s.y + s.height / 2));
+
+                if (dx < 14 && dy < 12 && player.vy > 0) {
+                    gameOver();
+                }
+            });
+
+            // Fall death
+            if (player.y > 700) {
+                gameOver();
+            }
+
+            // Camera follow
+            camera.targetY = Math.min(0, -player.y + CANVAS_HEIGHT * 0.7);
+            camera.y += (camera.targetY - camera.y) * 0.1;
+
+            // Update particles
+            particles.forEach(p => {
+                p.x += p.vx * dt;
+                p.y += p.vy * dt;
+                p.vy += 200 * dt;
+                p.life -= dt;
+                p.size *= 0.98;
+            });
+            particles = particles.filter(p => p.life > 0);
+
+            // Score from height
+            if (player.y < 300) {
+                gameState.score += Math.floor(dt * 10);
+            }
+        }
+
+        function render() {
+            drawBackground();
+
+            ctx.save();
+            ctx.translate(0, camera.y);
+
+            // Draw platforms
+            platforms.forEach(p => {
+                if (p.y - camera.y < CANVAS_HEIGHT + 50 && p.y - camera.y > -50) {
+                    drawBrickPlatform(p.x, p.y, p.width, p.height);
+                }
+            });
+
+            // Draw spikes
+            spikes.forEach(s => {
+                drawSpike(s);
+            });
+
+            // Draw keys
+            keys.forEach(k => {
+                drawKey(k);
+            });
+
+            // Draw door
+            drawDoor();
+
+            // Draw enemies
+            enemies.forEach(e => {
+                drawEnemy(e);
+            });
+
+            // Draw particles
+            drawParticles();
+
+            // Draw player
+            drawPlayer();
+
+            ctx.restore();
+
+            // Draw UI (fixed position)
+            drawUI();
+
+            // Level transition overlay
+            if (gameState.transitioning) {
+                ctx.fillStyle = 'rgba(0, 0, 0, 0.7)';
+                ctx.fillRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
+
+                ctx.shadowColor = COLORS.yellow;
+                ctx.shadowBlur = 20;
+                ctx.fillStyle = COLORS.yellow;
+                ctx.font = 'bold 36px "Courier New", monospace';
+                ctx.textAlign = 'center';
+                ctx.fillText(`FLOOR ${gameState.floor}`, CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2);
+                ctx.shadowBlur = 0;
+                ctx.textAlign = 'left';
+            }
+
+            // Game over screen
+            if (!gameState.running && !gameState.transitioning) {
+                ctx.fillStyle = 'rgba(0, 0, 0, 0.85)';
+                ctx.fillRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
+
+                const glitchOffset = Math.sin(Date.now() / 50) * 3;
+
+                ctx.shadowColor = COLORS.red;
+                ctx.shadowBlur = 20;
+                ctx.fillStyle = COLORS.red;
+                ctx.font = 'bold 52px "Courier New", monospace';
+                ctx.textAlign = 'center';
+                ctx.fillText('GAME OVER', CANVAS_WIDTH / 2 + glitchOffset, CANVAS_HEIGHT / 2 - 60);
+
+                ctx.shadowColor = COLORS.cyan;
+                ctx.fillStyle = COLORS.cyan;
+                ctx.font = 'bold 28px "Courier New", monospace';
+                ctx.fillText(`SCORE: ${gameState.score}`, CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2);
+
+                ctx.shadowBlur = 0;
+                ctx.fillStyle = COLORS.purple;
+                ctx.font = '22px "Courier New", monospace';
+                ctx.fillText(`REACHED FLOOR: ${gameState.floor}`, CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2 + 40);
+
+                ctx.fillStyle = COLORS.white;
+                ctx.font = '18px "Courier New", monospace';
+                ctx.fillText('Click to restart', CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2 + 100);
+
+                ctx.textAlign = 'left';
+            }
+        }
+
+        function nextLevel() {
+            gameState.transitioning = true;
+            audio.playVictory();
+            gameState.score += 500;
+
+            setTimeout(() => {
+                gameState.floor++;
+                gameState.keys = 0;
+                gameState.transitioning = false;
+                generateLevel(gameState.floor);
+            }, 1500);
+        }
+
+        function gameLoop(timestamp) {
+            if (!gameState.running) return;
+
+            const dt = Math.min((timestamp - lastTime) / 1000, 0.1);
+            lastTime = timestamp;
+
+            update(dt);
+            render();
+
+            requestAnimationFrame(gameLoop);
+        }
+
+        function startGame() {
+            audio.init();
+            audio.startBGM();
+            startScreen.style.display = 'none';
+
+            // Reset state
+            gameState = {
+                running: true,
+                score: 0,
+                floor: 1,
+                keys: 0,
+                keysRequired: 3,
+                doorOpen: false,
+                transitioning: false
+            };
+
+            generateLevel(1);
+
+            lastTime = performance.now();
+            requestAnimationFrame(gameLoop);
+        }
+
+        function gameOver() {
+            gameState.running = false;
+            audio.stopBGM();
+            audio.playFall();
+            setTimeout(() => audio.playGameOver(), 500);
+        }
+
+        function resetGame() {
+            audio.startBGM();
+
+            gameState = {
+                running: true,
+                score: 0,
+                floor: 1,
+                keys: 0,
+                keysRequired: 3,
+                doorOpen: false,
+                transitioning: false
+            };
+
+            generateLevel(1);
+
+            lastTime = performance.now();
+            requestAnimationFrame(gameLoop);
+        }
+
+        // ==================== Event Listeners ====================
+        startScreen.addEventListener('click', () => {
+            if (!gameState.running) startGame();
+        });
+
+        canvas.addEventListener('click', () => {
+            if (!gameState.running && !gameState.transitioning) {
+                resetGame();
+            }
+        });
+
+        document.addEventListener('keydown', (e) => {
+            if (startScreen.style.display !== 'none') {
+                startGame();
+                return;
+            }
+            keysPressed[e.code] = true;
+        });
+
+        document.addEventListener('keyup', (e) => {
+            keysPressed[e.code] = false;
+        });
+
+        // Initial render
+        generateLevel(1);
+        render();
+    </script>
+</body>
+</html>
